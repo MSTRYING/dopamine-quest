@@ -1,0 +1,19 @@
+{
+  "name": "Dopamine Quest",
+  "short_name": "Dopamine Quest",
+  "description": "A local-first ADHD life gamification app with quests, XP, streaks, themes, puzzles, and brain reports.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120817",
+  "theme_color": "#120817",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

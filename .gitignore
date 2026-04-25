@@ -1,0 +1,10 @@
+Game brief.txt
+
+# Local/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Temporary files
+*.tmp
+*.log
