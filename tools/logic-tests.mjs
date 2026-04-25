@@ -119,6 +119,11 @@ function testPhaseFormParsing() {
     get(key) {
       return this.values[key];
     }
+
+    getAll(key) {
+      const value = this.values[key];
+      return Array.isArray(value) ? value : value === undefined ? [] : [value];
+    }
   };
 
   try {
@@ -134,12 +139,22 @@ function testPhaseFormParsing() {
       phasePlaylist: "https://music.apple.com/test",
       phaseBonus: "not-a-number",
       phaseClosingPrompt: "What changed?",
-      phaseTasksText: "Write note | Mandatory | nope | 25 | What did you write?\nStretch | Standard | 5 | nope"
+      taskId: ["", ""],
+      taskName: ["Write note", "Stretch"],
+      taskType: ["Mandatory", "Alternating"],
+      taskDuration: ["nope", "5"],
+      taskXp: ["25", "nope"],
+      taskFrequencyDays: ["0", "3"],
+      taskBonusCondition: ["", "Every 3 days"],
+      taskInputPrompt: ["What did you write?", ""],
+      taskSound: ["Epic", "Satisfying"]
     });
     assert(phase.name === "Test Phase", "Phase name was not parsed.");
     assert(phase.xp.completionBonus === 0, "Invalid completion bonus did not fall back safely.");
-    assert(phase.tasks.length === 2, "Task lines were not parsed.");
+    assert(phase.tasks.length === 2, "Task editor rows were not parsed.");
     assert(phase.tasks[0].type === "Mandatory" && phase.tasks[0].inputPrompt, "Mandatory task prompt was lost.");
+    assert(phase.tasks[1].type === "Alternating" && phase.tasks[1].frequencyDays === 3, "Alternating frequency was not saved.");
+    assert(phase.tasks[0].sound === "Epic" && phase.tasks[1].sound === "Satisfying", "Task sound settings were not saved.");
     assert(phase.tasks[0].duration === 0 && phase.tasks[1].xp === 0, "Invalid task numbers did not fall back safely.");
   } finally {
     globalThis.FormData = NativeFormData;
@@ -168,13 +183,23 @@ function testImportPreview() {
   assert(preview.unknown.length === 1, "Import preview did not flag unknown keys.");
 }
 
+function testSettingsDefaultMerge() {
+  localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({ dailyXpGoal: 123, musicLinks: { Focus: "focus-url" } }));
+  const state = storage.initializeStorage();
+  assert(state.settings.dailyXpGoal === 123, "Existing setting was not preserved during default merge.");
+  assert(state.settings.soundEffects === true && state.settings.haptics === true, "New feedback settings were not merged into old storage.");
+  assert(state.settings.musicLinks.Focus === "focus-url", "Nested music link was not preserved during default merge.");
+  assert("High Energy" in state.settings.musicLinks, "Nested music defaults were not restored.");
+}
+
 const tests = [
   testXpAndTier,
   testGratitudeUniqueness,
   testResetBehavior,
   testPhaseFormParsing,
   testPuzzleScoring,
-  testImportPreview
+  testImportPreview,
+  testSettingsDefaultMerge
 ];
 
 for (const test of tests) {

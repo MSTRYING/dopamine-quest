@@ -1,4 +1,4 @@
-const CACHE_NAME = "dopamine-quest-static-v2";
+const CACHE_NAME = "dopamine-quest-static-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -12,7 +12,9 @@ const APP_SHELL = [
   "./analytics.js",
   "./puzzles.js",
   "./manifest.webmanifest",
-  "./assets/icon.svg"
+  "./assets/icon.svg",
+  "./assets/screenshot-mobile.svg",
+  "./assets/screenshot-reward.svg"
 ];
 
 self.addEventListener("install", (event) => {

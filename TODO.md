@@ -71,9 +71,14 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Strengthened puzzle hub visual states for locked, unlocked, and recommended rewards.
 - [x] Improved puzzle recommendations with recency, enjoyment, and difficulty sweet-spot scoring.
 - [x] Reworked Phase Builder into friendly editable fields while keeping advanced JSON access.
+- [x] Added structured task editor cards with add/remove/reorder controls, task type dropdowns, XP/minutes, alternating frequency, bonus condition, input prompt, and task sound.
+- [x] Added reward sound and haptic/vibration toggles.
+- [x] Added full day-close reward card with XP, tier, streak, best task, skipped task, tomorrow suggestion, and tarot-style level card.
 - [x] Added import preview for backup JSON.
 - [x] Added automatic safety backup download before reset today, reset month, or full reset.
+- [x] Added backup reminder status and last-export tracking.
 - [x] Added service worker offline cache for GitHub Pages/static hosting.
+- [x] Added manifest screenshots and shortcuts for better mobile install metadata.
 - [x] Re-run full local mobile smoke test after improvement pass.
 - [x] Re-run live GitHub Pages mobile smoke test after push.
 - [x] Run pure logic tests after bug-check pass.

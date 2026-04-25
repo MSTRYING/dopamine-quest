@@ -35,7 +35,7 @@ node tools/mobile-smoke.mjs https://mstrying.github.io/dopamine-quest/
 
 ## Logic Test
 
-Run the dependency-free engine tests for XP, streak-adjacent storage resets, gratitude uniqueness, phase parsing, import preview, and puzzle scoring:
+Run the dependency-free engine tests for XP, streak-adjacent storage resets, gratitude uniqueness, structured phase/task parsing, import preview, settings migrations, and puzzle scoring:
 
 ```powershell
 node tools/logic-tests.mjs
@@ -58,7 +58,7 @@ The app registers `sw.js` when served from GitHub Pages or another web server. A
 - Dynamic quest phases, tasks, timers, XP, levels, streaks, achievements, and daily tiers.
 - Settings with friendly phase editing, phase add/edit/delete/reorder/toggle, music links, XP preferences, safer resets, import preview/export, and raw data view.
 - Gratitude journal, weekly/monthly goals, Brain Report, month-end tarot card, and seasonal themes.
-- Sudoku, find-the-difference, and logic-grid puzzles unlock only as daily XP tier rewards, with reward chest UI and difficulty/enjoyment ratings.
+- Sudoku, find-the-difference, and logic-grid puzzles unlock only as daily XP tier rewards, with reward chest UI, sound/haptic toggles, and difficulty/enjoyment ratings.
 
 ## Data
 

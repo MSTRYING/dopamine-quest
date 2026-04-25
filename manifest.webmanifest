@@ -8,12 +8,41 @@
   "background_color": "#120817",
   "theme_color": "#120817",
   "orientation": "portrait",
+  "categories": ["productivity", "games", "health"],
   "icons": [
     {
       "src": "./assets/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./assets/screenshot-mobile.svg",
+      "sizes": "390x844",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Mobile Today screen with quest progress and reward chest"
+    },
+    {
+      "src": "./assets/screenshot-reward.svg",
+      "sizes": "390x844",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Day-close tarot reward card"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today",
+      "short_name": "Today",
+      "url": "./index.html#today"
+    },
+    {
+      "name": "Puzzle Reward",
+      "short_name": "Puzzle",
+      "url": "./index.html#puzzles"
     }
   ]
 }

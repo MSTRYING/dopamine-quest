@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-label="Dopamine Quest mobile Today screen">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#10061d"/>
+      <stop offset=".52" stop-color="#35135f"/>
+      <stop offset="1" stop-color="#08040f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop stop-color="#b890ff"/>
+      <stop offset="1" stop-color="#f8d66d"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="28"/></filter>
+  </defs>
+  <rect width="390" height="844" fill="url(#bg)"/>
+  <circle cx="50" cy="76" r="86" fill="#b890ff" opacity=".38" filter="url(#blur)"/>
+  <circle cx="344" cy="266" r="98" fill="#f8d66d" opacity=".28" filter="url(#blur)"/>
+  <rect x="16" y="18" width="358" height="86" rx="28" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.22)"/>
+  <circle cx="56" cy="61" r="24" fill="url(#gold)"/>
+  <text x="92" y="54" fill="#fff8ff" font-size="17" font-family="Segoe UI, Arial" font-weight="800">Pebble Padawan</text>
+  <text x="92" y="78" fill="rgba(255,248,255,.72)" font-size="12" font-family="Segoe UI, Arial">Cosmic Reset · Bronze tier</text>
+  <rect x="16" y="126" width="358" height="150" rx="30" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.18)"/>
+  <text x="36" y="158" fill="#f8d66d" font-size="11" font-family="Segoe UI, Arial" font-weight="900">TODAY</text>
+  <text x="36" y="196" fill="#fff8ff" font-size="34" font-family="Segoe UI, Arial" font-weight="900">Dopamine Quest</text>
+  <text x="36" y="226" fill="rgba(255,248,255,.74)" font-size="14" font-family="Segoe UI, Arial">Tiny rituals become enormous magic.</text>
+  <rect x="16" y="294" width="358" height="172" rx="30" fill="rgba(255,255,255,.12)" stroke="rgba(248,214,109,.45)"/>
+  <rect x="38" y="318" width="58" height="58" rx="20" fill="url(#gold)"/>
+  <text x="56" y="357" fill="#120817" font-size="27" font-family="Segoe UI Symbol, Arial">▦</text>
+  <text x="36" y="408" fill="#fff8ff" font-size="24" font-family="Segoe UI, Arial" font-weight="900">Reward Chest</text>
+  <text x="36" y="435" fill="rgba(255,248,255,.72)" font-size="13" font-family="Segoe UI, Arial">Games unlock only after Bronze.</text>
+  <rect x="16" y="486" width="358" height="210" rx="30" fill="rgba(255,255,255,.11)" stroke="rgba(255,255,255,.18)"/>
+  <text x="36" y="522" fill="#f8d66d" font-size="11" font-family="Segoe UI, Arial" font-weight="900">TODAY SUMMARY</text>
+  <text x="36" y="558" fill="#fff8ff" font-size="24" font-family="Segoe UI, Arial" font-weight="900">Next best quest</text>
+  <rect x="36" y="592" width="140" height="72" rx="22" fill="rgba(255,255,255,.12)"/>
+  <rect x="196" y="592" width="140" height="72" rx="22" fill="rgba(255,255,255,.12)"/>
+  <text x="58" y="634" fill="#fff8ff" font-size="28" font-family="Segoe UI, Arial" font-weight="900">4/8</text>
+  <text x="218" y="634" fill="#fff8ff" font-size="28" font-family="Segoe UI, Arial" font-weight="900">2/8</text>
+  <rect x="16" y="762" width="358" height="64" rx="28" fill="rgba(18,8,28,.82)" stroke="rgba(255,255,255,.18)"/>
+  <text x="48" y="801" fill="#fff8ff" font-size="13" font-family="Segoe UI, Arial" font-weight="800">Today</text>
+  <text x="144" y="801" fill="rgba(255,248,255,.68)" font-size="13" font-family="Segoe UI, Arial" font-weight="800">Phase</text>
+  <text x="240" y="801" fill="rgba(255,248,255,.68)" font-size="13" font-family="Segoe UI, Arial" font-weight="800">Puzzle</text>
+  <text x="318" y="801" fill="rgba(255,248,255,.68)" font-size="13" font-family="Segoe UI, Arial" font-weight="800">More</text>
+</svg>

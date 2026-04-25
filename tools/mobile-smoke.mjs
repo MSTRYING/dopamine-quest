@@ -329,6 +329,10 @@ async function testQuestFlow(cdp) {
   );
   assert(state.xpEarned > 0, "Quest flow did not award XP.");
   assert(state.phaseCompletions["morning-ignition"], "Morning Ignition did not complete.");
+  await gotoRoute(cdp, "today");
+  await click(cdp, "[data-action='open-day-reward']");
+  await waitFor(cdp, `document.querySelector('#modal-root')?.innerText.toLowerCase().includes('day close reward')`);
+  await click(cdp, "[data-action='close-modal']");
 }
 
 async function earnPuzzleReward(cdp) {
@@ -424,16 +428,36 @@ async function testSettings(cdp) {
   await click(cdp, "[data-action='toggle-phase']");
   await setValue(cdp, "input[name='dailyXpGoal']", "500");
   await evaluate(cdp, `document.querySelector("select[name='autoDailyGoal']").value = "false"; document.querySelector("select[name='autoDailyGoal']").dispatchEvent(new Event('change', { bubbles: true }));`);
+  await evaluate(cdp, `document.querySelector("select[name='soundEffects']").value = "false"; document.querySelector("select[name='soundEffects']").dispatchEvent(new Event('change', { bubbles: true }));`);
+  await evaluate(cdp, `document.querySelector("select[name='haptics']").value = "false"; document.querySelector("select[name='haptics']").dispatchEvent(new Event('change', { bubbles: true }));`);
   await click(cdp, "form[data-submit='save-settings'] button[type='submit']");
   const settings = await evaluate(cdp, `JSON.parse(localStorage.getItem('dq_settings'))`);
   assert(settings.dailyXpGoal === 500 && settings.autoDailyGoal === false, "Settings form did not persist.");
+  assert(settings.soundEffects === false && settings.haptics === false, "Sound/haptic settings did not persist.");
   await click(cdp, "[data-action='add-phase']");
   await waitFor(cdp, `document.querySelector("form[data-submit='save-phase-json']")`);
   const friendlyBuilder = await evaluate(
     cdp,
-    `Boolean(document.querySelector("textarea[name='phaseTasksText']") && document.querySelector("details.advanced-editor"))`
+    `Boolean(document.querySelector("[data-task-editor]") && document.querySelector("details.advanced-editor"))`
   );
   assert(friendlyBuilder, "Friendly phase builder fields were not present.");
+  await click(cdp, "[data-action='add-task-row']");
+  await waitFor(cdp, `document.querySelectorAll("[data-task-row]").length === 1`);
+  await setValue(cdp, "[data-task-row] input[name='taskName']", "Smoke test task");
+  await evaluate(cdp, `document.querySelector("[data-task-row] select[name='taskType']").value = "Alternating"; document.querySelector("[data-task-row] select[name='taskType']").dispatchEvent(new Event('change', { bubbles: true }));`);
+  await setValue(cdp, "[data-task-row] input[name='taskFrequencyDays']", "3");
+  await setValue(cdp, "[data-task-row] input[name='taskBonusCondition']", "Every 3 days");
+  const taskEditorWorks = await evaluate(
+    cdp,
+    `(() => {
+      const row = document.querySelector("[data-task-row]");
+      return row?.querySelector("select[name='taskType']").value === "Alternating"
+        && row?.querySelector("input[name='taskFrequencyDays']").value === "3";
+    })()`
+  );
+  assert(taskEditorWorks, "Task editor controls did not update.");
+  await click(cdp, "[data-action='remove-task-row']");
+  await waitFor(cdp, `document.querySelectorAll("[data-task-row]").length === 0`);
   await evaluate(cdp, `document.querySelector("form[data-submit='save-phase-json'] [data-action='close-modal']").click()`);
   await waitFor(cdp, `!document.querySelector("form[data-submit='save-phase-json']")`);
 }
@@ -533,6 +557,9 @@ async function testReportsAndData(cdp) {
   await waitFor(cdp, `document.querySelector("[data-import-preview]")?.innerText.includes("dq_phases")`);
   await click(cdp, "form[data-submit='import-json-submit'] button[type='submit']");
   await waitFor(cdp, `!document.querySelector("form[data-submit='import-json-submit']")`);
+  await click(cdp, "[data-action='export-json']");
+  const meta = await evaluate(cdp, `JSON.parse(localStorage.getItem('dq_meta'))`);
+  assert(Boolean(meta.lastBackupAt), "Export JSON did not record lastBackupAt.");
 }
 
 async function testPwa(cdp) {

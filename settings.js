@@ -2,8 +2,9 @@ import { DEFAULT_PHASES, MONTHLY_THEMES, WEEKDAYS } from "./data.js";
 import { exportAllData, monthKey, todayKey } from "./storage.js";
 import { escapeHtml, renderRaw, tags } from "./ui.js";
 
-const TASK_TYPES = ["Standard", "Mandatory", "Bonus", "Display"];
+const TASK_TYPES = ["Standard", "Mandatory", "Bonus", "Display", "Alternating"];
 const MUSIC_MOODS = ["Uplifting", "High Energy", "Focus", "Calm", "Ambient", "Restaurant"];
+const TASK_SOUNDS = ["Subtle", "Satisfying", "Epic"];
 
 export function renderSettings(state) {
   return `
@@ -92,6 +93,21 @@ export function renderPreferences(state) {
             <option value="false" ${!s.animations ? "selected" : ""}>Reduced</option>
           </select>
         </label>
+        <label>Reward sounds
+          <select name="soundEffects">
+            <option value="true" ${s.soundEffects !== false ? "selected" : ""}>Enabled</option>
+            <option value="false" ${s.soundEffects === false ? "selected" : ""}>Muted</option>
+          </select>
+        </label>
+        <label>Haptics / vibration
+          <select name="haptics">
+            <option value="true" ${s.haptics !== false ? "selected" : ""}>Enabled</option>
+            <option value="false" ${s.haptics === false ? "selected" : ""}>Off</option>
+          </select>
+        </label>
+        <label>Backup reminder days
+          <input name="backupReminderDays" type="number" min="1" value="${escapeHtml(s.backupReminderDays || 14)}">
+        </label>
         <label>Apple Music - High Energy
           <input name="musicHighEnergy" value="${escapeHtml(s.musicLinks["High Energy"] || "")}" placeholder="https://music.apple.com/...">
         </label>
@@ -130,10 +146,20 @@ export function renderThemeSettings(state) {
 }
 
 export function renderDataPrivacy(state) {
+  const lastBackup = state.meta?.lastBackupAt ? new Date(state.meta.lastBackupAt) : null;
+  const backupReminderDays = Number(state.settings.backupReminderDays || 14);
+  const backupAgeDays = lastBackup ? Math.floor((Date.now() - lastBackup.getTime()) / 86400000) : Infinity;
+  const backupCopy = Number.isFinite(backupAgeDays)
+    ? `Last backup: ${lastBackup.toISOString().slice(0, 10)} (${backupAgeDays} days ago).`
+    : "No backup export recorded in this browser yet.";
   return `
     <section class="panel settings-view">
       <p class="eyebrow">Data & Privacy</p>
       <p class="muted">Everything stays in this browser's localStorage unless you export it. Imports now preview what will change before you commit.</p>
+      <div class="backup-reminder ${backupAgeDays >= backupReminderDays ? "due" : ""}">
+        <strong>${backupAgeDays >= backupReminderDays ? "Backup reminder glowing." : "Backup rhythm healthy."}</strong>
+        <span class="muted small">${escapeHtml(backupCopy)} Reminder window: every ${backupReminderDays} days.</span>
+      </div>
       <div class="grid two">
         <button class="btn secondary" data-action="export-json">Export JSON</button>
         <button class="btn secondary" data-action="export-journal">Export Journal</button>
@@ -163,7 +189,6 @@ export function renderPhaseEditor(state, phaseId = "") {
         name: "New Phase",
         tasks: []
       };
-  const taskLines = formatTaskLines(phase);
   return `
     <form class="form-grid" data-submit="save-phase-json">
       <input type="hidden" name="phaseId" value="${escapeHtml(phaseId)}">
@@ -207,10 +232,19 @@ export function renderPhaseEditor(state, phaseId = "") {
       <label>Closing prompt
         <input name="phaseClosingPrompt" value="${escapeHtml(phase.mandatoryEnd?.enabled ? phase.mandatoryEnd.prompt : "")}" placeholder="Optional reflection required before closing this phase">
       </label>
-      <label>Tasks
-        <textarea name="phaseTasksText" class="task-lines" aria-describedby="task-lines-help">${escapeHtml(taskLines)}</textarea>
-      </label>
-      <p class="muted small" id="task-lines-help">One task per line: name | type | minutes | XP | optional mandatory prompt. Types: ${TASK_TYPES.join(", ")}.</p>
+      <section class="task-editor" data-task-editor>
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <p class="eyebrow">Task Editor</p>
+            <h4>${phase.tasks.length || 0} tasks</h4>
+          </div>
+          <button class="btn secondary" type="button" data-action="add-task-row">Add task</button>
+        </div>
+        <p class="muted small">Use Alternating plus frequency days for tasks like hair wash or exfoliation. Bonus conditions show on the task card.</p>
+        <div class="task-editor-list" data-task-list>
+          ${(phase.tasks || []).map((task, index) => renderTaskEditorRow(task, index)).join("")}
+        </div>
+      </section>
       <details class="advanced-editor">
         <summary class="tag">Advanced JSON</summary>
         <label>Full phase JSON
@@ -236,6 +270,9 @@ export function readSettingsForm(form) {
     sabbathDay: Number(fd.get("sabbathDay") || 0),
     gratitudeWindowDays: Number(fd.get("gratitudeWindowDays") || 21),
     animations: fd.get("animations") === "true",
+    soundEffects: fd.get("soundEffects") !== "false",
+    haptics: fd.get("haptics") !== "false",
+    backupReminderDays: Math.max(1, safeNonNegativeNumber(fd.get("backupReminderDays"), 14)),
     musicLinks: {
       "High Energy": String(fd.get("musicHighEnergy") || ""),
       Focus: String(fd.get("musicFocus") || ""),
@@ -281,8 +318,112 @@ export function readPhaseForm(form) {
     enabled: Boolean(closingPrompt),
     prompt: closingPrompt
   };
-  phase.tasks = parseTaskLines(fd.get("phaseTasksText"), phase.tasks || []);
+  phase.tasks = readTaskRows(fd, phase.tasks || []);
   return phase;
+}
+
+export function renderTaskEditorRow(task = {}, index = 0) {
+  const type = TASK_TYPES.includes(task.type) ? task.type : "Standard";
+  const sound = TASK_SOUNDS.includes(task.sound) ? task.sound : "Subtle";
+  return `
+    <article class="task-edit-card" data-task-row>
+      <input type="hidden" name="taskId" value="${escapeHtml(task.id || "")}">
+      <div class="task-edit-head">
+        <span class="tag">Task ${index + 1}</span>
+        <div class="task-edit-actions">
+          <button class="icon-btn" type="button" data-action="move-task-row" data-dir="-1" aria-label="Move task up">↑</button>
+          <button class="icon-btn" type="button" data-action="move-task-row" data-dir="1" aria-label="Move task down">↓</button>
+          <button class="icon-btn danger-lite" type="button" data-action="remove-task-row" aria-label="Remove task">×</button>
+        </div>
+      </div>
+      <label>Task name
+        <input name="taskName" value="${escapeHtml(task.name || "")}" required placeholder="Make the bed">
+      </label>
+      <div class="grid two">
+        <label>Type
+          <select name="taskType">
+            ${TASK_TYPES.map((item) => `<option value="${escapeHtml(item)}" ${type === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Sound
+          <select name="taskSound">
+            ${TASK_SOUNDS.map((item) => `<option value="${escapeHtml(item)}" ${sound === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="grid two">
+        <label>Minutes
+          <input name="taskDuration" type="number" min="0" step="1" value="${Number(task.duration || 0)}">
+        </label>
+        <label>XP
+          <input name="taskXp" type="number" min="0" step="1" value="${Number(task.xp || 0)}">
+        </label>
+      </div>
+      <label>Alternating frequency days
+        <input name="taskFrequencyDays" type="number" min="0" step="1" value="${Number(task.frequencyDays || 0)}" placeholder="0 = every active day">
+      </label>
+      <label>Bonus condition / visible note
+        <input name="taskBonusCondition" value="${escapeHtml(task.bonusCondition || "")}" placeholder="Every 3 days, add table decor, optional sub-steps...">
+      </label>
+      <label>Mandatory input prompt
+        <input name="taskInputPrompt" value="${escapeHtml(task.inputPrompt || "")}" placeholder="Only required for Mandatory tasks">
+      </label>
+    </article>
+  `;
+}
+
+export function emptyTaskEditorRow(index = 0) {
+  return renderTaskEditorRow({
+    id: "",
+    name: "New task",
+    type: "Standard",
+    duration: 5,
+    xp: 10,
+    frequencyDays: 0,
+    bonusCondition: "",
+    sound: "Subtle",
+    inputPrompt: ""
+  }, index);
+}
+
+function readTaskRows(fd, existingTasks = []) {
+  const names = typeof fd.getAll === "function" ? fd.getAll("taskName") : [];
+  if (!names.length) return parseTaskLines(fd.get("phaseTasksText"), existingTasks);
+  const ids = fd.getAll("taskId");
+  const types = fd.getAll("taskType");
+  const durations = fd.getAll("taskDuration");
+  const xps = fd.getAll("taskXp");
+  const frequencies = fd.getAll("taskFrequencyDays");
+  const bonuses = fd.getAll("taskBonusCondition");
+  const prompts = fd.getAll("taskInputPrompt");
+  const sounds = fd.getAll("taskSound");
+  const usedIds = new Set();
+  return names
+    .map((rawName, index) => {
+      const name = String(rawName || "").trim();
+      if (!name) return null;
+      const existing = existingTasks.find((task) => task.id === ids[index])
+        || existingTasks.find((task) => (task.name || "").toLowerCase() === name.toLowerCase());
+      const type = TASK_TYPES.includes(types[index]) ? types[index] : "Standard";
+      const id = uniqueTaskId(ids[index] || existing?.id || slugify(name) || `task-${index + 1}`, usedIds);
+      const task = {
+        ...(existing || {}),
+        id,
+        name,
+        type,
+        duration: safeNonNegativeNumber(durations[index], existing?.duration || 0),
+        xp: safeNonNegativeNumber(xps[index], existing?.xp || 0),
+        frequencyDays: safeNonNegativeNumber(frequencies[index], existing?.frequencyDays || 0),
+        bonusCondition: String(bonuses[index] || "").trim(),
+        sound: TASK_SOUNDS.includes(sounds[index]) ? sounds[index] : "Subtle"
+      };
+      const prompt = String(prompts[index] || "").trim();
+      if (type === "Mandatory" && prompt) task.inputPrompt = prompt;
+      else delete task.inputPrompt;
+      if (type !== "Alternating" && task.frequencyDays === 0) task.frequencyDays = 0;
+      return task;
+    })
+    .filter(Boolean);
 }
 
 function formatTaskLines(phase) {
@@ -320,6 +461,19 @@ function parseTaskLines(text, existingTasks = []) {
       else delete task.inputPrompt;
       return task;
     });
+}
+
+function uniqueTaskId(base, usedIds) {
+  const raw = String(base || "").trim();
+  const clean = /^[a-z0-9-]+$/i.test(raw) ? raw : slugify(raw) || "task";
+  let id = clean;
+  let suffix = 2;
+  while (usedIds.has(id)) {
+    id = `${clean}-${suffix}`;
+    suffix += 1;
+  }
+  usedIds.add(id);
+  return id;
 }
 
 function safeNonNegativeNumber(value, fallback = 0) {

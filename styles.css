@@ -447,6 +447,7 @@ h3 {
 
 .phase-row.done {
   border-color: color-mix(in oklab, var(--success) 48%, transparent);
+  animation: phase-seal 520ms ease both;
 }
 
 .phase-dot {
@@ -569,6 +570,10 @@ h3 {
   opacity: 0.62;
 }
 
+.task-row.done {
+  animation: task-pop 420ms cubic-bezier(0.2, 1.4, 0.3, 1) both;
+}
+
 .bottom-nav {
   position: fixed;
   left: 50%;
@@ -638,14 +643,56 @@ textarea {
   resize: vertical;
 }
 
-.task-lines {
-  min-height: 190px;
-}
-
 .code-textarea {
   min-height: 280px;
   font-family: "Cascadia Code", "Consolas", monospace;
   font-size: 12px;
+}
+
+.task-editor {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--faint));
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 12rem),
+    rgba(255, 255, 255, 0.055);
+}
+
+.task-editor h4 {
+  margin: 0;
+}
+
+.task-editor-list {
+  display: grid;
+  gap: 12px;
+}
+
+.task-edit-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--faint);
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.task-edit-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.task-edit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.danger-lite {
+  color: #21040b;
+  background: color-mix(in oklab, var(--danger) 92%, #fff 8%);
 }
 
 .advanced-editor {
@@ -671,6 +718,26 @@ textarea {
 
 .import-preview span {
   display: block;
+}
+
+.backup-reminder {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--faint);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.backup-reminder.due {
+  border-color: color-mix(in oklab, var(--accent-2) 70%, transparent);
+  box-shadow: 0 0 34px color-mix(in oklab, var(--accent-2) 16%, transparent);
+}
+
+.day-reward-modal {
+  display: grid;
+  gap: 12px;
 }
 
 input:focus,
@@ -754,6 +821,49 @@ select:focus {
   font-size: 74px;
   font-weight: 950;
   box-shadow: 0 0 60px color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+.tarot.mini {
+  min-height: 0;
+  padding: 18px;
+}
+
+.tarot.mini .tarot-glyph {
+  width: 100px;
+  height: 132px;
+  margin: 14px auto;
+  font-size: 48px;
+}
+
+@keyframes task-pop {
+  0% {
+    transform: scale(0.98);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  55% {
+    transform: scale(1.018);
+    box-shadow: 0 0 34px color-mix(in oklab, var(--success) 20%, transparent);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes phase-seal {
+  0% {
+    transform: translateY(0);
+  }
+
+  45% {
+    transform: translateY(-2px);
+    box-shadow: 0 0 38px color-mix(in oklab, var(--success) 18%, transparent);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
 }
 
 .sudoku {

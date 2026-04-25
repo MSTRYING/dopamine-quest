@@ -81,13 +81,13 @@ export function loadState() {
     gratitude: readStore(STORAGE_KEYS.gratitude),
     weeklyGoals: readStore(STORAGE_KEYS.weeklyGoals),
     monthlyGoals: readStore(STORAGE_KEYS.monthlyGoals),
-    settings: readStore(STORAGE_KEYS.settings),
+    settings: mergeDefaults(DEFAULT_SETTINGS, readStore(STORAGE_KEYS.settings)),
     streaks: readStore(STORAGE_KEYS.streaks),
     achievements: readStore(STORAGE_KEYS.achievements),
     character: readStore(STORAGE_KEYS.character),
     analytics: readStore(STORAGE_KEYS.analytics),
-    puzzles: readStore(STORAGE_KEYS.puzzles),
-    meta: readStore(STORAGE_KEYS.meta)
+    puzzles: mergeDefaults(DEFAULT_PUZZLES, readStore(STORAGE_KEYS.puzzles)),
+    meta: mergeDefaults(DEFAULTS[STORAGE_KEYS.meta], readStore(STORAGE_KEYS.meta))
   };
 }
 
@@ -192,4 +192,15 @@ function summarizeImportValue(value) {
   if (value && typeof value === "object") return `${Object.keys(value).length} fields`;
   if (value === null) return "empty";
   return typeof value;
+}
+
+function mergeDefaults(defaultValue, storedValue) {
+  if (Array.isArray(defaultValue)) return Array.isArray(storedValue) ? storedValue : clone(defaultValue);
+  if (!defaultValue || typeof defaultValue !== "object") return storedValue ?? clone(defaultValue);
+  const stored = storedValue && typeof storedValue === "object" && !Array.isArray(storedValue) ? storedValue : {};
+  const merged = clone(defaultValue);
+  Object.entries(stored).forEach(([key, value]) => {
+    merged[key] = key in merged ? mergeDefaults(merged[key], value) : value;
+  });
+  return merged;
 }

@@ -8,6 +8,7 @@ import {
   completeTask,
   getCurrentTheme,
   getLevelInfo,
+  getTarotForLevel,
   getTier,
   maybeSwapMonthlyTheme,
   quoteOfDay,
@@ -57,7 +58,7 @@ import {
   sudokuHint,
   updateSudokuValue
 } from "./puzzles.js";
-import { readPhaseForm, readSettingsForm, renderPhaseEditor, renderSettings } from "./settings.js";
+import { emptyTaskEditorRow, readPhaseForm, readSettingsForm, renderPhaseEditor, renderSettings } from "./settings.js";
 
 const app = document.getElementById("app");
 
@@ -65,6 +66,7 @@ let state = initializeStorage();
 let route = getRoute();
 let activePhaseId = "";
 let puzzleSession = null;
+let audioContext = null;
 
 updateStreakOnOpen(state);
 maybeSwapMonthlyTheme(state);
@@ -90,6 +92,47 @@ function navigate(nextRoute) {
   window.location.hash = nextRoute;
   route = nextRoute;
   render();
+}
+
+function playSound(kind = "subtle") {
+  if (state.settings.soundEffects === false) return;
+  try {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return;
+    audioContext = audioContext || new AudioCtor();
+    if (audioContext.state === "suspended") audioContext.resume();
+    const now = audioContext.currentTime;
+    const gain = audioContext.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(kind === "epic" ? 0.08 : 0.045, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + (kind === "reward" ? 0.42 : 0.22));
+    gain.connect(audioContext.destination);
+    const notes = {
+      subtle: [528],
+      satisfying: [528, 660],
+      epic: [440, 660, 880],
+      reward: [523.25, 659.25, 783.99]
+    }[kind] || [528];
+    notes.forEach((frequency, index) => {
+      const osc = audioContext.createOscillator();
+      osc.type = kind === "epic" || kind === "reward" ? "triangle" : "sine";
+      osc.frequency.setValueAtTime(frequency, now + index * 0.065);
+      osc.connect(gain);
+      osc.start(now + index * 0.065);
+      osc.stop(now + index * 0.065 + 0.18);
+    });
+  } catch (error) {
+    console.warn("Reward sound skipped.", error);
+  }
+}
+
+function pulse(pattern) {
+  if (state.settings.haptics === false || typeof navigator.vibrate !== "function") return;
+  try {
+    navigator.vibrate(pattern);
+  } catch (error) {
+    console.warn("Haptic pulse skipped.", error);
+  }
 }
 
 function registerServiceWorker() {
@@ -211,7 +254,10 @@ function renderTodaySummary(phases, log) {
         <div class="stat"><strong>${completedTasks}/${totalTasks}</strong><span class="muted small">tasks touched</span></div>
         <div class="stat"><strong>${closedPhases}/${phases.length}</strong><span class="muted small">phases closed</span></div>
       </div>
-      <button class="btn secondary full" data-route="${nextPhase ? "phase" : "reports"}">${nextPhase ? "Continue questing" : "View report"}</button>
+      <div class="grid two">
+        <button class="btn secondary full" data-route="${nextPhase ? "phase" : "reports"}">${nextPhase ? "Continue questing" : "View report"}</button>
+        <button class="btn full" data-action="open-day-reward">Day-close reward card</button>
+      </div>
     </section>
   `;
 }
@@ -378,12 +424,16 @@ function handleClick(event) {
   if (action === "mark-month-report") return markMonthReport();
   if (action === "add-phase") return showModal(renderPhaseEditor(state));
   if (action === "edit-phase") return showModal(renderPhaseEditor(state, actionNode.dataset.id));
+  if (action === "add-task-row") return addTaskEditorRow(actionNode);
+  if (action === "remove-task-row") return removeTaskEditorRow(actionNode);
+  if (action === "move-task-row") return moveTaskEditorRow(actionNode, Number(actionNode.dataset.dir));
   if (action === "move-phase") return movePhase(actionNode.dataset.id, Number(actionNode.dataset.dir));
   if (action === "toggle-phase") return togglePhase(actionNode.dataset.id);
   if (action === "delete-phase") return deletePhase(actionNode.dataset.id);
   if (action === "set-theme") return setTheme(actionNode.dataset.id);
   if (action === "open-reward-chest") return openRewardChest();
-  if (action === "export-json") return downloadText(`dopamine-quest-${todayKey()}.json`, exportAllData());
+  if (action === "open-day-reward") return showDayCloseReward();
+  if (action === "export-json") return exportJsonAction();
   if (action === "export-journal") return exportJournal();
   if (action === "import-json") return showImportModal();
   if (action === "preview-import") return previewImportAction(actionNode);
@@ -455,12 +505,21 @@ function completeTaskAction(phaseId, taskId) {
     return;
   }
   const result = completeTask(state, phaseId, taskId);
+  if (result.ok) {
+    playSound(soundKind(task.sound));
+    pulse(task.sound === "Epic" ? [20, 20, 30] : 18);
+  }
   commit(result.ok ? `+${result.xp} XP` : result.message);
 }
 
 function submitTaskInput(form) {
   const fd = new FormData(form);
   const result = completeTask(state, fd.get("phaseId"), fd.get("taskId"), fd.get("taskInput"));
+  const task = state.phases.find((phase) => phase.id === fd.get("phaseId"))?.tasks.find((item) => item.id === fd.get("taskId"));
+  if (result.ok) {
+    playSound(soundKind(task?.sound));
+    pulse(task?.sound === "Epic" ? [20, 20, 30] : 18);
+  }
   closeModal();
   commit(result.ok ? `+${result.xp} XP. The tiny goblin claps.` : result.message);
 }
@@ -482,14 +541,30 @@ function completePhaseAction(phaseId) {
     return;
   }
   const result = completePhase(state, phaseId);
-  commit(result.ok ? `${result.message} +${result.xp} XP bonus.` : result.message);
+  finishPhase(result, phaseId);
 }
 
 function submitPhaseEnd(form) {
   const fd = new FormData(form);
   const result = completePhase(state, fd.get("phaseId"), fd.get("endInput"));
   closeModal();
+  finishPhase(result, fd.get("phaseId"));
+}
+
+function finishPhase(result, phaseId) {
+  if (result.ok) {
+    playSound("satisfying");
+    pulse([18, 25, 18]);
+  }
   commit(result.ok ? `${result.message} +${result.xp} XP bonus.` : result.message);
+  if (result.ok && shouldShowDayCloseReward(phaseId)) showDayCloseReward();
+}
+
+function shouldShowDayCloseReward(phaseId) {
+  const phases = activePhasesForToday(state);
+  const log = getTodayLog(state);
+  const allClosed = phases.length > 0 && phases.every((phase) => log.phaseCompletions[phase.id]);
+  return allClosed || phaseId === "day-close";
 }
 
 function markMonthReport() {
@@ -533,6 +608,44 @@ function saveSettings(form) {
   const next = readSettingsForm(form);
   state.settings = { ...state.settings, ...next, preferredMusicPlatform: "Apple Music" };
   commit("Settings saved.");
+}
+
+function exportJsonAction() {
+  state.meta.lastBackupAt = new Date().toISOString();
+  saveState(state);
+  downloadText(`dopamine-quest-${todayKey()}.json`, exportAllData());
+  commit("Backup exported. Future-you receives a tiny shield.");
+}
+
+function addTaskEditorRow(button) {
+  const form = button.closest("form");
+  const list = form?.querySelector("[data-task-list]");
+  if (!list) return;
+  list.insertAdjacentHTML("beforeend", emptyTaskEditorRow(list.querySelectorAll("[data-task-row]").length));
+  refreshTaskEditorLabels(list);
+}
+
+function removeTaskEditorRow(button) {
+  const row = button.closest("[data-task-row]");
+  const list = row?.parentElement;
+  row?.remove();
+  if (list) refreshTaskEditorLabels(list);
+}
+
+function moveTaskEditorRow(button, dir) {
+  const row = button.closest("[data-task-row]");
+  const list = row?.parentElement;
+  if (!row || !list) return;
+  if (dir < 0 && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
+  if (dir > 0 && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
+  refreshTaskEditorLabels(list);
+}
+
+function refreshTaskEditorLabels(list) {
+  [...list.querySelectorAll("[data-task-row]")].forEach((row, index) => {
+    const tag = row.querySelector(".task-edit-head .tag");
+    if (tag) tag.textContent = `Task ${index + 1}`;
+  });
 }
 
 function savePhaseJson(form) {
@@ -681,13 +794,8 @@ function openRewardChest() {
   }
   const difficulty = tierDifficulty(tier);
   const profile = state.puzzles.brainProfile;
-  if (state.settings.animations && typeof navigator.vibrate === "function") {
-    try {
-      navigator.vibrate([18, 30, 18]);
-    } catch (error) {
-      console.warn("Haptic reward pulse was skipped.", error);
-    }
-  }
+  playSound("reward");
+  pulse([18, 30, 18]);
   showModal(`
     <section class="reward-modal">
       <div class="reward-orb big" aria-hidden="true">▦</div>
@@ -703,6 +811,79 @@ function openRewardChest() {
       <button class="btn secondary full" type="button" data-action="close-modal">Not yet</button>
     </section>
   `);
+}
+
+function showDayCloseReward() {
+  const log = getTodayLog(state);
+  const phases = activePhasesForToday(state);
+  const goal = calculateDailyGoal(state);
+  const tier = getTier(log.xpEarned || 0, goal);
+  const level = getLevelInfo(state.character.totalXp);
+  const tarot = getTarotForLevel(level.level);
+  const bestTask = [...(log.taskEvents || [])].sort((a, b) => (b.xp || 0) - (a.xp || 0))[0];
+  const missed = phases.flatMap((phase) =>
+    activeTasksForPhase(state, phase)
+      .filter((task) => task.type !== "Bonus" && task.type !== "Display" && !log.completedTasks[taskKey(phase.id, task.id)])
+      .map((task) => ({ phase, task }))
+  );
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowPhase = activePhasesForToday(state, tomorrow)[0];
+  const suggestion = missed[0]
+    ? `Tomorrow, give "${missed[0].task.name}" a smaller doorway.`
+    : tomorrowPhase
+      ? `Tomorrow opens with ${tomorrowPhase.name}. Set the first tile now if you can.`
+      : "Tomorrow has no active phase yet. Add one if the quest board feels too quiet.";
+  playSound("reward");
+  pulse([20, 35, 20]);
+  showModal(`
+    <section class="day-reward-modal">
+      <p class="eyebrow">Day Close Reward</p>
+      <div class="tarot mini">
+        <p class="eyebrow">${escapeHtml(tarot.card)}</p>
+        <div class="tarot-glyph">${level.level}</div>
+        <h2>${escapeHtml(level.title)}</h2>
+        <p class="muted">${escapeHtml(tier)} day · ${log.xpEarned || 0}/${goal} XP · ${state.streaks.current} day streak</p>
+      </div>
+      <div class="grid two">
+        <div class="stat"><strong>${log.xpEarned || 0}</strong><span class="muted small">XP earned today</span></div>
+        <div class="stat"><strong>${escapeHtml(tier)}</strong><span class="muted small">daily tier</span></div>
+      </div>
+      <div class="grid">
+        <div class="setting-row">
+          <div class="phase-dot" style="--phase-color:var(--accent-2)">★</div>
+          <div class="phase-body">
+            <strong>Best task</strong>
+            <span class="muted small">${bestTask ? `${escapeHtml(bestTask.name)} · ${bestTask.xp} XP` : "No tasks logged yet. The card is patient."}</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="phase-dot" style="--phase-color:var(--danger)">!</div>
+          <div class="phase-body">
+            <strong>Skipped task</strong>
+            <span class="muted small">${missed[0] ? `${escapeHtml(missed[0].task.name)} in ${escapeHtml(missed[0].phase.name)}` : "No required task skipped. Suspiciously majestic."}</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="phase-dot" style="--phase-color:var(--accent)">→</div>
+          <div class="phase-body">
+            <strong>Tomorrow suggestion</strong>
+            <span class="muted small">${escapeHtml(suggestion)}</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn full" type="button" data-action="open-reward-chest" ${tier === "None" ? "disabled" : ""}>${tier === "None" ? "Puzzle reward still locked" : "Open puzzle reward"}</button>
+      <button class="btn secondary full" type="button" data-action="close-modal">Close card</button>
+    </section>
+  `);
+}
+
+function soundKind(value = "Subtle") {
+  return {
+    Subtle: "subtle",
+    Satisfying: "satisfying",
+    Epic: "epic"
+  }[value] || "subtle";
 }
 
 function startPuzzle(type, difficulty) {

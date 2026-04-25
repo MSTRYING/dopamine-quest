@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-label="Dopamine Quest reward card screen">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#160718"/>
+      <stop offset=".48" stop-color="#4d246f"/>
+      <stop offset="1" stop-color="#090b18"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#f8d66d"/>
+      <stop offset=".45" stop-color="#b890ff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="20"/></filter>
+  </defs>
+  <rect width="390" height="844" fill="url(#bg)"/>
+  <circle cx="195" cy="180" r="128" fill="#f8d66d" opacity=".22" filter="url(#glow)"/>
+  <rect x="20" y="42" width="350" height="760" rx="38" fill="rgba(255,255,255,.12)" stroke="rgba(248,214,109,.52)" stroke-width="2"/>
+  <text x="54" y="94" fill="#f8d66d" font-size="12" font-family="Segoe UI, Arial" font-weight="900">DAY CLOSE REWARD</text>
+  <rect x="90" y="126" width="210" height="278" rx="92" fill="url(#card)"/>
+  <text x="174" y="284" fill="#160718" font-size="82" font-family="Segoe UI, Arial" font-weight="900">7</text>
+  <text x="72" y="462" fill="#fff8ff" font-size="31" font-family="Segoe UI, Arial" font-weight="900">Quartz Quester</text>
+  <text x="60" y="496" fill="rgba(255,248,255,.76)" font-size="15" font-family="Segoe UI, Arial">Gold day · 410 XP · 12 day streak</text>
+  <rect x="50" y="540" width="132" height="84" rx="24" fill="rgba(255,255,255,.13)"/>
+  <rect x="208" y="540" width="132" height="84" rx="24" fill="rgba(255,255,255,.13)"/>
+  <text x="82" y="589" fill="#fff8ff" font-size="32" font-family="Segoe UI, Arial" font-weight="900">410</text>
+  <text x="240" y="589" fill="#fff8ff" font-size="32" font-family="Segoe UI, Arial" font-weight="900">Gold</text>
+  <rect x="50" y="654" width="290" height="54" rx="18" fill="rgba(255,255,255,.11)"/>
+  <text x="72" y="687" fill="#fff8ff" font-size="14" font-family="Segoe UI, Arial">Best task · 45-minute workout</text>
+  <rect x="50" y="724" width="290" height="54" rx="18" fill="rgba(255,255,255,.11)"/>
+  <text x="72" y="757" fill="#fff8ff" font-size="14" font-family="Segoe UI, Arial">Tomorrow · Start with Morning Ignition</text>
+</svg>
