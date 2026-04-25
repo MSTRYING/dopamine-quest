@@ -60,7 +60,7 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [ ] Mobile device test after GitHub Pages upload.
 - [ ] Verify import/export restore in browser.
 - [ ] Verify refresh persistence in browser.
-- [ ] Verify GitHub Pages static hosting after upload.
+- [x] Verify GitHub Pages static hosting after upload.
 
 ## Improvement Pass: Reward Loop, Safety, PWA
 
@@ -73,4 +73,4 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Added automatic safety backup download before reset today, reset month, or full reset.
 - [x] Added service worker offline cache for GitHub Pages/static hosting.
 - [x] Re-run full local mobile smoke test after improvement pass.
-- [ ] Re-run live GitHub Pages mobile smoke test after push.
+- [x] Re-run live GitHub Pages mobile smoke test after push.
