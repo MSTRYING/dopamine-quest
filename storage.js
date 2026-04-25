@@ -134,6 +134,20 @@ export function exportAllData() {
   return JSON.stringify(payload, null, 2);
 }
 
+export function previewImportData(jsonText) {
+  const parsed = JSON.parse(jsonText);
+  const keys = Object.values(STORAGE_KEYS);
+  const included = keys
+    .filter((key) => Object.prototype.hasOwnProperty.call(parsed, key))
+    .map((key) => ({ key, summary: summarizeImportValue(parsed[key]) }));
+  const unknown = Object.keys(parsed).filter((key) => !keys.includes(key));
+  return {
+    included,
+    unknown,
+    totalKeys: Object.keys(parsed).length
+  };
+}
+
 export function importAllData(jsonText) {
   const parsed = JSON.parse(jsonText);
   Object.values(STORAGE_KEYS).forEach((key) => {
@@ -171,4 +185,11 @@ export function downloadText(filename, text, type = "application/json") {
   link.download = filename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+function summarizeImportValue(value) {
+  if (Array.isArray(value)) return `${value.length} items`;
+  if (value && typeof value === "object") return `${Object.keys(value).length} fields`;
+  if (value === null) return "empty";
+  return typeof value;
 }

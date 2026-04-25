@@ -2,6 +2,9 @@ import { DEFAULT_PHASES, MONTHLY_THEMES, WEEKDAYS } from "./data.js";
 import { exportAllData, monthKey, todayKey } from "./storage.js";
 import { escapeHtml, renderRaw, tags } from "./ui.js";
 
+const TASK_TYPES = ["Standard", "Mandatory", "Bonus", "Display"];
+const MUSIC_MOODS = ["Uplifting", "High Energy", "Focus", "Calm", "Ambient", "Restaurant"];
+
 export function renderSettings(state) {
   return `
     <section class="panel hero settings-view">
@@ -130,7 +133,7 @@ export function renderDataPrivacy(state) {
   return `
     <section class="panel settings-view">
       <p class="eyebrow">Data & Privacy</p>
-      <p class="muted">Everything stays in this browser's localStorage unless you export it.</p>
+      <p class="muted">Everything stays in this browser's localStorage unless you export it. Imports now preview what will change before you commit.</p>
       <div class="grid two">
         <button class="btn secondary" data-action="export-json">Export JSON</button>
         <button class="btn secondary" data-action="export-journal">Export Journal</button>
@@ -153,21 +156,25 @@ export function renderDataPrivacy(state) {
 
 export function renderPhaseEditor(state, phaseId = "") {
   const phase = phaseId
-    ? state.phases.find((item) => item.id === phaseId)
+    ? state.phases.find((item) => item.id === phaseId) || structuredClone(DEFAULT_PHASES[0])
     : {
         ...structuredClone(DEFAULT_PHASES[0]),
         id: `phase-${Date.now()}`,
         name: "New Phase",
         tasks: []
       };
+  const taskLines = formatTaskLines(phase);
   return `
     <form class="form-grid" data-submit="save-phase-json">
       <input type="hidden" name="phaseId" value="${escapeHtml(phaseId)}">
       <p class="eyebrow">Phase Builder</p>
       <h3>${phaseId ? "Edit phase" : "Add phase"}</h3>
-      <p class="muted">Basic fields are below. The full JSON editor exposes every property from the phase model for power-user tuning.</p>
+      <p class="muted">Edit the common fields directly. The advanced JSON drawer stays available for power tuning without making every tiny change feel like defusing a bomb.</p>
       <label>Phase name
         <input name="phaseName" value="${escapeHtml(phase.name)}" required>
+      </label>
+      <label>Description
+        <textarea name="phaseDescription">${escapeHtml(phase.description || phase.intro || "")}</textarea>
       </label>
       <label>Icon token
         <input name="phaseIcon" value="${escapeHtml(phase.icon)}" placeholder="sun, spark, focus, bolt...">
@@ -181,9 +188,35 @@ export function renderPhaseEditor(state, phaseId = "") {
           <option value="false" ${!phase.active ? "selected" : ""}>Inactive</option>
         </select>
       </label>
-      <label>Full phase JSON
-        <textarea name="phaseJson" style="min-height:320px">${escapeHtml(JSON.stringify(phase, null, 2))}</textarea>
+      <label>Trigger label
+        <input name="phaseTriggerLabel" value="${escapeHtml(phase.trigger?.label || "")}" placeholder="After work, First app open, 7:30 PM...">
       </label>
+      <div class="grid two">
+        <label>Music mood
+          <select name="phaseMusicMood">
+            ${MUSIC_MOODS.map((mood) => `<option value="${escapeHtml(mood)}" ${phase.music?.mood === mood ? "selected" : ""}>${escapeHtml(mood)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Completion bonus XP
+          <input name="phaseBonus" type="number" min="0" step="1" value="${Number(phase.xp?.completionBonus || 0)}">
+        </label>
+      </div>
+      <label>Apple Music playlist URL
+        <input name="phasePlaylist" value="${escapeHtml(phase.music?.playlist || "")}" placeholder="https://music.apple.com/...">
+      </label>
+      <label>Closing prompt
+        <input name="phaseClosingPrompt" value="${escapeHtml(phase.mandatoryEnd?.enabled ? phase.mandatoryEnd.prompt : "")}" placeholder="Optional reflection required before closing this phase">
+      </label>
+      <label>Tasks
+        <textarea name="phaseTasksText" class="task-lines" aria-describedby="task-lines-help">${escapeHtml(taskLines)}</textarea>
+      </label>
+      <p class="muted small" id="task-lines-help">One task per line: name | type | minutes | XP | optional mandatory prompt. Types: ${TASK_TYPES.join(", ")}.</p>
+      <details class="advanced-editor">
+        <summary class="tag">Advanced JSON</summary>
+        <label>Full phase JSON
+          <textarea name="phaseJson" class="code-textarea">${escapeHtml(JSON.stringify(phase, null, 2))}</textarea>
+        </label>
+      </details>
       <div class="grid two">
         <button class="btn" type="submit">Save phase</button>
         ${phaseId ? `<button class="btn danger" type="button" data-action="delete-phase" data-id="${escapeHtml(phaseId)}">Delete</button>` : ""}
@@ -212,4 +245,92 @@ export function readSettingsForm(form) {
       Uplifting: ""
     }
   };
+}
+
+export function readPhaseForm(form) {
+  const fd = new FormData(form);
+  let phase = {};
+  try {
+    phase = JSON.parse(fd.get("phaseJson") || "{}");
+  } catch (error) {
+    throw new Error("Phase JSON is not valid yet.");
+  }
+  phase.id = phase.id || `phase-${Date.now()}`;
+  phase.name = String(fd.get("phaseName") || phase.name || "New Phase").trim();
+  phase.description = String(fd.get("phaseDescription") || "").trim();
+  phase.icon = String(fd.get("phaseIcon") || phase.icon || "spark").trim();
+  phase.color = String(fd.get("phaseColor") || phase.color || "#b890ff");
+  phase.active = fd.get("phaseActive") === "true";
+  phase.trigger = {
+    ...(phase.trigger || {}),
+    type: phase.trigger?.type || "manual",
+    label: String(fd.get("phaseTriggerLabel") || phase.trigger?.label || "Manual").trim()
+  };
+  phase.music = {
+    ...(phase.music || {}),
+    mood: String(fd.get("phaseMusicMood") || phase.music?.mood || "Focus"),
+    playlist: String(fd.get("phasePlaylist") || "").trim()
+  };
+  phase.xp = {
+    ...(phase.xp || {}),
+    completionBonus: safeNonNegativeNumber(fd.get("phaseBonus"), 0)
+  };
+  const closingPrompt = String(fd.get("phaseClosingPrompt") || "").trim();
+  phase.mandatoryEnd = {
+    ...(phase.mandatoryEnd || {}),
+    enabled: Boolean(closingPrompt),
+    prompt: closingPrompt
+  };
+  phase.tasks = parseTaskLines(fd.get("phaseTasksText"), phase.tasks || []);
+  return phase;
+}
+
+function formatTaskLines(phase) {
+  return (phase.tasks || [])
+    .map((task) => [
+      task.name || "Untitled task",
+      TASK_TYPES.includes(task.type) ? task.type : "Standard",
+      Number(task.duration || 0),
+      Number(task.xp || 0),
+      task.inputPrompt || ""
+    ].join(" | ").replace(/\s+\| $/, ""))
+    .join("\n");
+}
+
+function parseTaskLines(text, existingTasks = []) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const [nameRaw, typeRaw = "Standard", durationRaw = "5", xpRaw = "10", promptRaw = ""] = line.split("|").map((part) => part.trim());
+      const name = nameRaw || `Task ${index + 1}`;
+      const existing = existingTasks.find((task) => (task.name || "").toLowerCase() === name.toLowerCase());
+      const type = TASK_TYPES.includes(typeRaw) ? typeRaw : "Standard";
+      const task = {
+        ...(existing || {}),
+        id: existing?.id || slugify(name) || `task-${index + 1}`,
+        name,
+        type,
+        duration: safeNonNegativeNumber(durationRaw, existing?.duration || 0),
+        xp: safeNonNegativeNumber(xpRaw, existing?.xp || 0)
+      };
+      const prompt = promptRaw || existing?.inputPrompt || "";
+      if (type === "Mandatory" && prompt) task.inputPrompt = prompt;
+      else delete task.inputPrompt;
+      return task;
+    });
+}
+
+function safeNonNegativeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : Math.max(0, Number(fallback) || 0);
+}
+
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
 }

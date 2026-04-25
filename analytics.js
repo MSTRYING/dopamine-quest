@@ -45,7 +45,7 @@ export function buildBrainInsights(state) {
   if (state.puzzles.history.length) {
     insights.push({
       title: "Puzzle Brain",
-      body: `Your current puzzle recommendation is ${puzzleProfile.recommendedType} at ${puzzleProfile.recommendedDifficulty} difficulty, based on enjoyment and perceived difficulty ratings.`
+      body: `${puzzleProfile.reason || `Your current puzzle recommendation is ${puzzleProfile.recommendedType} at ${puzzleProfile.recommendedDifficulty} difficulty.`}`
     });
   }
 

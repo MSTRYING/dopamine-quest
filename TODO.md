@@ -61,3 +61,16 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [ ] Verify import/export restore in browser.
 - [ ] Verify refresh persistence in browser.
 - [ ] Verify GitHub Pages static hosting after upload.
+
+## Improvement Pass: Reward Loop, Safety, PWA
+
+- [x] Added Today reward chest and daily summary cards.
+- [x] Added reward chest modal with puzzle choice and recommendation highlight.
+- [x] Strengthened puzzle hub visual states for locked, unlocked, and recommended rewards.
+- [x] Improved puzzle recommendations with recency, enjoyment, and difficulty sweet-spot scoring.
+- [x] Reworked Phase Builder into friendly editable fields while keeping advanced JSON access.
+- [x] Added import preview for backup JSON.
+- [x] Added automatic safety backup download before reset today, reset month, or full reset.
+- [x] Added service worker offline cache for GitHub Pages/static hosting.
+- [x] Re-run full local mobile smoke test after improvement pass.
+- [ ] Re-run live GitHub Pages mobile smoke test after push.

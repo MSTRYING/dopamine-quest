@@ -302,6 +302,16 @@ async function routeCheck(cdp, route) {
 }
 
 async function testQuestFlow(cdp) {
+  await gotoRoute(cdp, "today");
+  const chestLocked = await evaluate(
+    cdp,
+    `(() => {
+      const button = document.querySelector("[data-action='open-reward-chest']");
+      return Boolean(button?.disabled && document.body.innerText.includes("Locked until Bronze"));
+    })()`
+  );
+  assert(chestLocked, "Reward chest should start locked before earning Bronze.");
+
   await gotoRoute(cdp, "phase");
   await click(cdp, "[data-action='start-phase']");
   await click(cdp, "[data-action='complete-task']");
@@ -358,6 +368,35 @@ async function earnPuzzleReward(cdp) {
     })()`
   );
   assert(tier !== "None", `Puzzle reward was not unlocked after earning XP; tier=${tier}`);
+
+  await evaluate(cdp, `document.querySelector("[data-action='close-modal']")?.click()`);
+  await gotoRoute(cdp, "today");
+  await waitFor(cdp, `document.querySelector("[data-action='open-reward-chest']:not([disabled])")`);
+  await evaluate(cdp, `document.querySelector("[data-action='open-reward-chest']")?.click()`);
+  await waitFor(cdp, `document.querySelector('#modal-root')?.innerText.toLowerCase().includes('reward chest opened')`).catch(async () => {
+    const debug = await evaluate(
+      cdp,
+      `(() => {
+        const logs = JSON.parse(localStorage.getItem('dq_daily_log'));
+        const settings = JSON.parse(localStorage.getItem('dq_settings'));
+        const today = new Date().toISOString().slice(0, 10);
+        const button = document.querySelector("[data-action='open-reward-chest']");
+        return {
+          button: button?.outerHTML,
+          modal: document.querySelector('#modal-root')?.innerText,
+          toast: document.querySelector('#toast-root')?.innerText,
+          route: location.hash,
+          xp: logs[today]?.xpEarned,
+          tier: logs[today]?.tier,
+          goal: settings.dailyXpGoal,
+          autoDailyGoal: settings.autoDailyGoal
+        };
+      })()`
+    );
+    throw new Error(`Reward chest did not open. Debug: ${JSON.stringify(debug, null, 2)}`);
+  });
+  await click(cdp, "[data-action='close-modal']");
+  await waitFor(cdp, `!document.querySelector('#modal-root')?.innerText.toLowerCase().includes('reward chest opened')`);
 }
 
 async function testJournalAndGoals(cdp) {
@@ -390,6 +429,11 @@ async function testSettings(cdp) {
   assert(settings.dailyXpGoal === 500 && settings.autoDailyGoal === false, "Settings form did not persist.");
   await click(cdp, "[data-action='add-phase']");
   await waitFor(cdp, `document.querySelector("form[data-submit='save-phase-json']")`);
+  const friendlyBuilder = await evaluate(
+    cdp,
+    `Boolean(document.querySelector("textarea[name='phaseTasksText']") && document.querySelector("details.advanced-editor"))`
+  );
+  assert(friendlyBuilder, "Friendly phase builder fields were not present.");
   await evaluate(cdp, `document.querySelector("form[data-submit='save-phase-json'] [data-action='close-modal']").click()`);
   await waitFor(cdp, `!document.querySelector("form[data-submit='save-phase-json']")`);
 }
@@ -485,8 +529,29 @@ async function testReportsAndData(cdp) {
     })()`
   );
   await setValue(cdp, "form[data-submit='import-json-submit'] textarea[name='json']", backup);
+  await click(cdp, "[data-action='preview-import']");
+  await waitFor(cdp, `document.querySelector("[data-import-preview]")?.innerText.includes("dq_phases")`);
   await click(cdp, "form[data-submit='import-json-submit'] button[type='submit']");
   await waitFor(cdp, `!document.querySelector("form[data-submit='import-json-submit']")`);
+}
+
+async function testPwa(cdp) {
+  const canUseServiceWorker = await evaluate(
+    cdp,
+    `location.protocol !== 'file:' && 'serviceWorker' in navigator`
+  );
+  if (!canUseServiceWorker) return;
+  const swFetchOk = await evaluate(cdp, `(async () => (await fetch('./sw.js', { cache: 'no-store' })).ok)()`);
+  assert(swFetchOk, "Service worker file was not reachable.");
+  for (let i = 0; i < 40; i += 1) {
+    const registered = await evaluate(
+      cdp,
+      `(async () => Boolean(await navigator.serviceWorker.getRegistration()))()`
+    );
+    if (registered) return;
+    await delay(250);
+  }
+  throw new Error("Service worker did not register.");
 }
 
 async function main() {
@@ -502,6 +567,7 @@ async function main() {
     cdp = new CDP(wsUrl);
     await cdp.connect();
     const pageErrors = await bootPage(cdp, url);
+    await testPwa(cdp);
 
     const routeResults = [];
     for (const route of ["today", "phase", "puzzles", "journal", "reports", "settings"]) {

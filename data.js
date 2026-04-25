@@ -312,7 +312,8 @@ export const DEFAULT_PUZZLES = {
     averageEnjoyment: {},
     averageDifficulty: {},
     recommendedType: "logic-grid",
-    recommendedDifficulty: "hard"
+    recommendedDifficulty: "hard",
+    reason: "No ratings yet. Starting with structured deduction because it gives the clearest signal."
   },
   unlocks: {}
 };

@@ -39,12 +39,16 @@ node tools/mobile-smoke.mjs https://mstrying.github.io/dopamine-quest/
 4. Open the generated GitHub Pages URL on your phone.
 5. Optional on mobile: use the browser share menu and choose `Add to Home Screen`.
 
+## Offline And Installable
+
+The app registers `sw.js` when served from GitHub Pages or another web server. After the first successful load, the static shell is cached for offline reopening. Progress data still lives only in that browser's `localStorage`, so use Settings -> Data & Privacy -> Export JSON for real backups.
+
 ## Included
 
 - Dynamic quest phases, tasks, timers, XP, levels, streaks, achievements, and daily tiers.
-- Settings with phase add/edit/delete/reorder/toggle, music links, XP preferences, resets, import/export, and raw data view.
+- Settings with friendly phase editing, phase add/edit/delete/reorder/toggle, music links, XP preferences, safer resets, import preview/export, and raw data view.
 - Gratitude journal, weekly/monthly goals, Brain Report, month-end tarot card, and seasonal themes.
-- Sudoku, find-the-difference, and logic-grid puzzles unlock only as daily XP tier rewards, with difficulty/enjoyment ratings.
+- Sudoku, find-the-difference, and logic-grid puzzles unlock only as daily XP tier rewards, with reward chest UI and difficulty/enjoyment ratings.
 
 ## Data
 

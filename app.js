@@ -13,6 +13,7 @@ import {
   quoteOfDay,
   startPhase,
   taskKey,
+  tierDifficulty,
   updateStreakOnOpen
 } from "./game.js";
 import { renderDailyProgress, renderReports } from "./analytics.js";
@@ -37,6 +38,7 @@ import {
   importAllData,
   initializeStorage,
   monthKey,
+  previewImportData,
   resetCurrentMonth,
   resetToday,
   saveState,
@@ -55,7 +57,7 @@ import {
   sudokuHint,
   updateSudokuValue
 } from "./puzzles.js";
-import { readSettingsForm, renderPhaseEditor, renderSettings } from "./settings.js";
+import { readPhaseForm, readSettingsForm, renderPhaseEditor, renderSettings } from "./settings.js";
 
 const app = document.getElementById("app");
 
@@ -68,6 +70,7 @@ updateStreakOnOpen(state);
 maybeSwapMonthlyTheme(state);
 saveState(state);
 render();
+registerServiceWorker();
 
 window.addEventListener("hashchange", () => {
   route = getRoute();
@@ -87,6 +90,15 @@ function navigate(nextRoute) {
   window.location.hash = nextRoute;
   route = nextRoute;
   render();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || window.location.protocol === "file:") return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((error) => {
+      console.warn("Dopamine Quest offline cache could not register.", error);
+    });
+  });
 }
 
 function commit(message = "") {
@@ -140,10 +152,12 @@ function renderToday() {
       ${tags([theme.name, `${tier} tier`, `${state.character.totalXp} total XP`])}
     </section>
     ${renderDailyProgress(state)}
+    ${renderRewardChest(log, goal, tier)}
     <section class="panel">
       <p class="eyebrow">Current Character</p>
       ${renderCharacterCard()}
     </section>
+    ${renderTodaySummary(phases, log)}
     <section class="panel full-span">
       <div class="row" style="justify-content:space-between">
         <div>
@@ -155,6 +169,49 @@ function renderToday() {
       <div class="grid">
         ${phases.map((phase) => renderPhaseRow(phase, log)).join("")}
       </div>
+    </section>
+  `;
+}
+
+function renderRewardChest(log, goal, tier) {
+  const bronzeXp = Math.ceil(goal * 0.5);
+  const needed = Math.max(0, bronzeXp - (log.xpEarned || 0));
+  const unlocked = tier !== "None";
+  const pct = bronzeXp ? Math.min(100, Math.round(((log.xpEarned || 0) / bronzeXp) * 100)) : 0;
+  const difficulty = tierDifficulty(tier);
+  return `
+    <section class="panel reward-chest ${unlocked ? "unlocked" : "locked"}">
+      <div class="reward-orb" aria-hidden="true">▦</div>
+      <p class="eyebrow">Puzzle Reward Chest</p>
+      <h3>${unlocked ? "Unlocked and politely sparkling." : "Locked until Bronze."}</h3>
+      <p class="muted small">${
+        unlocked
+          ? `${escapeHtml(tier)} tier opened today's ${escapeHtml(difficulty)} puzzle reward. Pick the brain candy that fits your mood.`
+          : `Earn ${needed} more XP to reach Bronze and unlock today's games as a reward.`
+      }</p>
+      <div class="mini-track reward-track"><span class="mini-fill" style="width:${pct}%"></span></div>
+      <button class="btn full" data-action="open-reward-chest" ${unlocked ? "" : "disabled"}>${unlocked ? "Open reward chest" : `${needed} XP to unlock`}</button>
+    </section>
+  `;
+}
+
+function renderTodaySummary(phases, log) {
+  const totalTasks = phases.reduce((sum, phase) => sum + activeTasksForPhase(state, phase).length, 0);
+  const completedTasks = Object.keys(log.completedTasks || {}).length;
+  const closedPhases = phases.filter((phase) => log.phaseCompletions[phase.id]).length;
+  const nextPhase = phases.find((phase) => !log.phaseCompletions[phase.id]);
+  const nextCopy = nextPhase
+    ? `Next best quest: ${nextPhase.name}.`
+    : "All active phases are closed. The day has receipts.";
+  return `
+    <section class="panel today-summary">
+      <p class="eyebrow">Today Summary</p>
+      <h3>${escapeHtml(nextCopy)}</h3>
+      <div class="grid two">
+        <div class="stat"><strong>${completedTasks}/${totalTasks}</strong><span class="muted small">tasks touched</span></div>
+        <div class="stat"><strong>${closedPhases}/${phases.length}</strong><span class="muted small">phases closed</span></div>
+      </div>
+      <button class="btn secondary full" data-route="${nextPhase ? "phase" : "reports"}">${nextPhase ? "Continue questing" : "View report"}</button>
     </section>
   `;
 }
@@ -325,9 +382,11 @@ function handleClick(event) {
   if (action === "toggle-phase") return togglePhase(actionNode.dataset.id);
   if (action === "delete-phase") return deletePhase(actionNode.dataset.id);
   if (action === "set-theme") return setTheme(actionNode.dataset.id);
+  if (action === "open-reward-chest") return openRewardChest();
   if (action === "export-json") return downloadText(`dopamine-quest-${todayKey()}.json`, exportAllData());
   if (action === "export-journal") return exportJournal();
   if (action === "import-json") return showImportModal();
+  if (action === "preview-import") return previewImportAction(actionNode);
   if (action === "reset-today") return resetTodayAction();
   if (action === "reset-month") return resetMonthAction();
   if (action === "full-reset") return fullResetAction();
@@ -480,17 +539,11 @@ function savePhaseJson(form) {
   const fd = new FormData(form);
   let phase;
   try {
-    phase = JSON.parse(fd.get("phaseJson"));
+    phase = readPhaseForm(form);
   } catch (error) {
-    toast("Phase JSON is not valid yet.");
+    toast(error.message || "Phase form is not valid yet.");
     return;
   }
-  phase.name = String(fd.get("phaseName") || phase.name);
-  phase.icon = String(fd.get("phaseIcon") || phase.icon);
-  phase.color = String(fd.get("phaseColor") || phase.color);
-  phase.active = fd.get("phaseActive") === "true";
-  if (!phase.id) phase.id = `phase-${Date.now()}`;
-  if (!Array.isArray(phase.tasks)) phase.tasks = [];
   const existing = state.phases.findIndex((item) => item.id === fd.get("phaseId") || item.id === phase.id);
   if (existing >= 0) state.phases[existing] = phase;
   else state.phases.push(phase);
@@ -543,18 +596,41 @@ function showImportModal() {
     <form class="form-grid" data-submit="import-json-submit">
       <p class="eyebrow">Import Backup</p>
       <h3>Restore localStorage JSON</h3>
-      <p class="muted">This replaces matching Dopamine Quest keys in this browser.</p>
+      <p class="muted">Preview first, then import. Only recognized Dopamine Quest keys are restored.</p>
       <label>Backup JSON
         <textarea name="json" required style="min-height:260px"></textarea>
       </label>
-      <button class="btn full" type="submit">Import backup</button>
+      <div class="import-preview" data-import-preview>
+        <strong>No preview yet.</strong>
+        <span class="muted small">Paste a backup JSON file and tap Preview backup.</span>
+      </div>
+      <div class="grid two">
+        <button class="btn secondary" type="button" data-action="preview-import">Preview backup</button>
+        <button class="btn" type="submit">Import backup</button>
+      </div>
       <button class="btn secondary full" type="button" data-action="close-modal">Cancel</button>
     </form>
   `);
 }
 
+function previewImportAction(button) {
+  const form = button.closest("form");
+  const previewNode = form?.querySelector("[data-import-preview]");
+  if (!form || !previewNode) return;
+  try {
+    const preview = previewImportData(new FormData(form).get("json"));
+    previewNode.innerHTML = `
+      <strong>${preview.included.length} Dopamine Quest stores found</strong>
+      <span class="muted small">${preview.included.map((item) => `${escapeHtml(item.key)}: ${escapeHtml(item.summary)}`).join("<br>") || "No recognized stores found."}</span>
+      ${preview.unknown.length ? `<span class="muted small">${preview.unknown.length} unknown keys will be ignored.</span>` : ""}
+    `;
+  } catch (error) {
+    previewNode.innerHTML = `<strong>Preview failed</strong><span class="muted small">That does not look like valid JSON yet.</span>`;
+  }
+}
+
 function importJsonAction(form) {
-  if (!confirm("Import this backup? It will overwrite matching Dopamine Quest data in this browser.")) return;
+  if (!confirm("Import this backup? It will overwrite matching Dopamine Quest data in this browser. Export a safety backup first if you are unsure.")) return;
   try {
     importAllData(new FormData(form).get("json"));
     state = initializeStorage();
@@ -565,26 +641,68 @@ function importJsonAction(form) {
   }
 }
 
+function downloadSafetyBackup(label) {
+  downloadText(`dopamine-quest-safety-${label}-${todayKey()}.json`, exportAllData());
+}
+
 function resetTodayAction() {
-  if (!confirm("Reset today's local quest log? This removes today's completions and XP from the daily log.")) return;
+  if (!confirm("Reset today's local quest log? This removes today's completions and XP from the daily log. A safety backup will download first.")) return;
+  downloadSafetyBackup("before-reset-today");
   resetToday(state);
   state = initializeStorage();
   commit("Today reset.");
 }
 
 function resetMonthAction() {
-  if (!confirm("Reset the current month? This removes this month's daily logs and monthly goal summary.")) return;
+  if (!confirm("Reset the current month? This removes this month's daily logs and monthly goal summary. A safety backup will download first.")) return;
+  downloadSafetyBackup("before-reset-month");
   resetCurrentMonth(state);
   state = initializeStorage();
   commit("Current month reset.");
 }
 
 function fullResetAction() {
-  if (!confirm("Full reset? This clears all Dopamine Quest localStorage in this browser.")) return;
+  if (!confirm("Full reset? This clears all Dopamine Quest localStorage in this browser. A safety backup will download first.")) return;
+  downloadSafetyBackup("before-full-reset");
   state = fullReset();
   activePhaseId = "";
   puzzleSession = null;
   commit("Full reset complete.");
+}
+
+function openRewardChest() {
+  const log = getTodayLog(state);
+  const goal = calculateDailyGoal(state);
+  const tier = getTier(log.xpEarned, goal);
+  if (tier === "None") {
+    const needed = Math.max(0, Math.ceil(goal * 0.5 - (log.xpEarned || 0)));
+    toast(`Puzzle rewards unlock at Bronze. Earn ${needed} more XP first.`);
+    return;
+  }
+  const difficulty = tierDifficulty(tier);
+  const profile = state.puzzles.brainProfile;
+  if (state.settings.animations && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate([18, 30, 18]);
+    } catch (error) {
+      console.warn("Haptic reward pulse was skipped.", error);
+    }
+  }
+  showModal(`
+    <section class="reward-modal">
+      <div class="reward-orb big" aria-hidden="true">▦</div>
+      <p class="eyebrow">Reward Chest Opened</p>
+      <h3>${escapeHtml(tier)} tier prize</h3>
+      <p class="muted">Choose one puzzle. The app will award XP after you finish and rate it, then use your rating to tune future recommendations.</p>
+      ${tags([`Difficulty: ${difficulty}`, `Recommended: ${profile.recommendedType}`])}
+      <div class="grid">
+        <button class="btn full ${profile.recommendedType === "sudoku" ? "" : "secondary"}" data-action="start-puzzle" data-type="sudoku" data-difficulty="${difficulty}">Sudoku ${profile.recommendedType === "sudoku" ? "· recommended" : ""}</button>
+        <button class="btn full ${profile.recommendedType === "difference" ? "" : "secondary"}" data-action="start-puzzle" data-type="difference" data-difficulty="${difficulty}">Difference Hunt ${profile.recommendedType === "difference" ? "· recommended" : ""}</button>
+        <button class="btn full ${profile.recommendedType === "logic-grid" ? "" : "secondary"}" data-action="start-puzzle" data-type="logic-grid" data-difficulty="${profile.recommendedDifficulty || difficulty}">Logic Grid ${profile.recommendedType === "logic-grid" ? "· recommended" : ""}</button>
+      </div>
+      <button class="btn secondary full" type="button" data-action="close-modal">Not yet</button>
+    </section>
+  `);
 }
 
 function startPuzzle(type, difficulty) {
@@ -597,8 +715,9 @@ function startPuzzle(type, difficulty) {
     render();
     return;
   }
+  closeModal();
   puzzleSession = createPuzzleSession(type, difficulty);
-  render();
+  navigate("puzzles");
 }
 
 function exitPuzzle() {

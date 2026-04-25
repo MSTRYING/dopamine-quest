@@ -359,35 +359,50 @@ export function unlock(state, achievementId) {
 
 export function updatePuzzleBrainProfile(state) {
   const history = state.puzzles.history;
+  const difficulties = ["easy", "medium", "hard", "expert"];
   const profile = {
     favoriteTypes: {},
     averageEnjoyment: {},
     averageDifficulty: {},
+    scores: {},
     recommendedType: "logic-grid",
-    recommendedDifficulty: "hard"
+    recommendedDifficulty: "hard",
+    reason: "No ratings yet. Starting with structured deduction because it gives the clearest signal."
   };
-  history.forEach((item) => {
+  history.forEach((item, index) => {
     const type = item.type;
+    const recencyWeight = 1 + Math.max(0, index - (history.length - 10)) * 0.12;
     profile.favoriteTypes[type] = (profile.favoriteTypes[type] || 0) + 1;
     profile.averageEnjoyment[type] = profile.averageEnjoyment[type] || [];
     profile.averageDifficulty[type] = profile.averageDifficulty[type] || [];
-    profile.averageEnjoyment[type].push(Number(item.enjoyment || 3));
-    profile.averageDifficulty[type].push(Number(item.perceivedDifficulty || 3));
+    profile.averageEnjoyment[type].push({ value: Number(item.enjoyment || 3), weight: recencyWeight });
+    profile.averageDifficulty[type].push({ value: Number(item.perceivedDifficulty || 3), weight: recencyWeight });
   });
   Object.keys(profile.averageEnjoyment).forEach((type) => {
-    const enjoyment = avg(profile.averageEnjoyment[type]);
-    const difficulty = avg(profile.averageDifficulty[type]);
+    const enjoyment = weightedAvg(profile.averageEnjoyment[type]);
+    const difficulty = weightedAvg(profile.averageDifficulty[type]);
     profile.averageEnjoyment[type] = enjoyment;
     profile.averageDifficulty[type] = difficulty;
+    const sweetSpotPenalty = Math.abs(difficulty - 3.2) * 0.42;
+    const confidenceBonus = Math.min(0.35, (profile.favoriteTypes[type] || 0) * 0.08);
+    profile.scores[type] = Math.round((enjoyment - sweetSpotPenalty + confidenceBonus) * 100) / 100;
   });
-  const best = Object.keys(profile.averageEnjoyment).sort((a, b) => profile.averageEnjoyment[b] - profile.averageEnjoyment[a])[0];
+  const best = Object.keys(profile.scores).sort((a, b) => profile.scores[b] - profile.scores[a])[0];
   if (best) profile.recommendedType = best;
-  const diff = profile.averageDifficulty[profile.recommendedType] || 4;
-  profile.recommendedDifficulty = diff < 3 ? "medium" : diff > 4.2 ? "expert" : "hard";
+  const diff = profile.averageDifficulty[profile.recommendedType] || 3.2;
+  const enjoyment = profile.averageEnjoyment[profile.recommendedType] || 3;
+  const lastForType = [...history].reverse().find((item) => item.type === profile.recommendedType);
+  let diffIndex = Math.max(0, difficulties.indexOf(lastForType?.difficulty || "medium"));
+  if (enjoyment >= 4.1 && diff <= 2.7) diffIndex += 1;
+  if (diff >= 4.2 || enjoyment <= 2.4) diffIndex -= 1;
+  profile.recommendedDifficulty = difficulties[Math.max(0, Math.min(difficulties.length - 1, diffIndex))];
+  profile.reason = `${profile.recommendedType} is scoring best lately: enjoyment ${enjoyment}/5, felt difficulty ${diff}/5.`;
   state.puzzles.brainProfile = profile;
 }
 
-function avg(values) {
-  if (!values.length) return 0;
-  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+function weightedAvg(items) {
+  if (!items.length) return 0;
+  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+  const total = items.reduce((sum, item) => sum + item.value * item.weight, 0);
+  return Math.round((total / totalWeight) * 10) / 10;
 }

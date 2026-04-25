@@ -15,7 +15,8 @@ export function renderPuzzleHub(state) {
   const remaining = Math.max(0, Math.ceil(goal * 0.5 - (log.xpEarned || 0)));
   const startAttrs = unlocked ? "" : "disabled aria-disabled=\"true\"";
   return `
-    <section class="panel hero puzzle-view">
+    <section class="panel hero puzzle-view reward-chest ${unlocked ? "unlocked" : "locked"}">
+      <div class="reward-orb" aria-hidden="true">▦</div>
       <p class="eyebrow">Daily Puzzle Reward</p>
       <h2>${unlocked ? "Reward unlocked." : "Earn the brain candy."}</h2>
       <p class="muted">${
@@ -24,19 +25,23 @@ export function renderPuzzleHub(state) {
           : `Games unlock once you reach Bronze: 50% of your daily XP goal. Earn ${remaining} more XP to open today's puzzle reward.`
       }</p>
       ${tags([`Tier: ${tier || "None"}`, unlocked ? `Unlocked: ${difficulty}` : `${remaining} XP to Bronze`, `Recommended: ${profile.recommendedType}`])}
+      <p class="muted small">${escapeHtml(profile.reason || "Ratings will tune future recommendations.")}</p>
     </section>
-    <section class="panel">
+    <section class="panel puzzle-card ${profile.recommendedType === "sudoku" ? "recommended" : ""}">
       <h3>Sudoku</h3>
+      ${profile.recommendedType === "sudoku" ? `<span class="tag">Recommended today</span>` : ""}
       <p class="muted">${unlocked ? "Classic number sorcery. Validation included. Shame excluded." : "Locked until Bronze. The grid goblin respects boundaries."}</p>
       <button class="btn full" data-action="start-puzzle" data-type="sudoku" data-difficulty="${difficulty}" ${startAttrs}>${unlocked ? "Start Sudoku" : "Locked Reward"}</button>
     </section>
-    <section class="panel">
+    <section class="panel puzzle-card ${profile.recommendedType === "difference" ? "recommended" : ""}">
       <h3>Find the Difference</h3>
+      ${profile.recommendedType === "difference" ? `<span class="tag">Recommended today</span>` : ""}
       <p class="muted">${unlocked ? "Procedural canvas scene with sneaky visual changes." : "Locked until Bronze. Sneaky visual chaos must be earned."}</p>
       <button class="btn full" data-action="start-puzzle" data-type="difference" data-difficulty="${difficulty}" ${startAttrs}>${unlocked ? "Start Difference Hunt" : "Locked Reward"}</button>
     </section>
-    <section class="panel">
+    <section class="panel puzzle-card ${profile.recommendedType === "logic-grid" ? "recommended" : ""}">
       <h3>Logic Grid</h3>
+      ${profile.recommendedType === "logic-grid" ? `<span class="tag">Recommended today</span>` : ""}
       <p class="muted">${unlocked ? "Scheduling-style deduction, because apparently we enjoy suffering with structure." : "Locked until Bronze. The scheduling goblin is behind a velvet rope."}</p>
       <button class="btn full" data-action="start-puzzle" data-type="logic-grid" data-difficulty="${profile.recommendedDifficulty || difficulty}" ${startAttrs}>${unlocked ? "Start Logic Grid" : "Locked Reward"}</button>
     </section>

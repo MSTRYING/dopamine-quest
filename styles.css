@@ -328,6 +328,86 @@ h3 {
   font-size: 22px;
 }
 
+.reward-chest {
+  position: relative;
+  overflow: hidden;
+}
+
+.reward-chest::before {
+  content: "";
+  position: absolute;
+  inset: -40% -30% auto;
+  height: 180px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent-2) 34%, transparent), transparent);
+  opacity: 0;
+  transform: rotate(-10deg) translateX(-20%);
+  pointer-events: none;
+}
+
+.reward-chest.unlocked::before {
+  opacity: 0.82;
+  animation: chest-shimmer 3.8s ease-in-out infinite;
+}
+
+.reward-chest.locked {
+  border-color: color-mix(in oklab, var(--faint) 80%, #000 20%);
+}
+
+.reward-orb {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 10px;
+  border: 1px solid color-mix(in oklab, var(--accent-2) 64%, transparent);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 45% 30%, #fff8, transparent 22px),
+    conic-gradient(from 20deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent));
+  color: #130817;
+  font-size: 26px;
+  font-weight: 950;
+  box-shadow: 0 0 42px color-mix(in oklab, var(--accent-2) 38%, transparent);
+}
+
+.reward-orb.big {
+  width: 86px;
+  height: 86px;
+  margin-inline: auto;
+  border-radius: 30px;
+  font-size: 38px;
+}
+
+.reward-track {
+  margin-block: 12px;
+}
+
+.today-summary .stat {
+  min-height: 86px;
+}
+
+.puzzle-card.recommended {
+  border-color: color-mix(in oklab, var(--accent-2) 62%, transparent);
+  box-shadow: 0 18px 54px color-mix(in oklab, var(--accent-2) 16%, transparent);
+}
+
+.reward-modal {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+@keyframes chest-shimmer {
+  0% {
+    transform: rotate(-10deg) translateX(-55%);
+  }
+
+  52%,
+  100% {
+    transform: rotate(-10deg) translateX(75%);
+  }
+}
+
 .row,
 .phase-row,
 .task-row,
@@ -556,6 +636,41 @@ select {
 textarea {
   min-height: 96px;
   resize: vertical;
+}
+
+.task-lines {
+  min-height: 190px;
+}
+
+.code-textarea {
+  min-height: 280px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 12px;
+}
+
+.advanced-editor {
+  padding: 10px;
+  border: 1px solid var(--faint);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.advanced-editor summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.import-preview {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--faint);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.import-preview span {
+  display: block;
 }
 
 input:focus,
