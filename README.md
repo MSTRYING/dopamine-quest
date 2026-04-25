@@ -17,6 +17,20 @@ Then open:
 http://localhost:8080
 ```
 
+## Mobile Smoke Test
+
+If Chrome or Edge is installed, run the dependency-free mobile smoke test:
+
+```powershell
+node tools/mobile-smoke.mjs
+```
+
+To test the live GitHub Pages version:
+
+```powershell
+node tools/mobile-smoke.mjs https://mstrying.github.io/dopamine-quest/
+```
+
 ## Upload To GitHub Pages
 
 1. Upload all files in this folder to a GitHub repository.

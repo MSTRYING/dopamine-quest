@@ -50,8 +50,11 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Local static server check for responsive stylesheet.
 - [x] Added GitHub Pages/mobile readiness files: `README.md`, `.nojekyll`, `manifest.webmanifest`, and `assets/icon.svg`.
 - [x] Validated manifest JSON and static serving for app, CSS, JS, manifest, and icon.
+- [x] Added dependency-free Chrome/Edge mobile smoke test in `tools/mobile-smoke.mjs`.
+- [x] Ran local mobile smoke test at 390x844 with Today, Phase, Puzzles, Journal, Reports, Settings, Sudoku, find-the-difference, logic-grid, goals, gratitude, settings, import, and month report flows.
+- [x] Fixed modal click handling so Cancel/Delete/action buttons inside modals work while backdrop clicks still close the modal.
 - [x] Final TODO update.
-- [ ] Browser smoke test on local static server.
+- [x] Browser smoke test on local static server.
 - [ ] Mobile device test after GitHub Pages upload.
 - [ ] Verify import/export restore in browser.
 - [ ] Verify refresh persistence in browser.

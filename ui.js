@@ -106,8 +106,8 @@ export function toast(message) {
 export function showModal(html) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `
-    <div class="modal-backdrop" data-action="close-modal">
-      <section class="modal-card" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+    <div class="modal-backdrop" data-modal-backdrop>
+      <section class="modal-card" role="dialog" aria-modal="true">
         ${html}
       </section>
     </div>

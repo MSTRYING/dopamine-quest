@@ -298,6 +298,11 @@ function renderJournal() {
 }
 
 function handleClick(event) {
+  if (event.target.matches("[data-modal-backdrop]")) {
+    closeModal();
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     navigate(routeButton.dataset.route);
