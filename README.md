@@ -25,10 +25,20 @@ If Chrome or Edge is installed, run the dependency-free mobile smoke test:
 node tools/mobile-smoke.mjs
 ```
 
+This also verifies service-worker registration and an offline reload after first load.
+
 To test the live GitHub Pages version:
 
 ```powershell
 node tools/mobile-smoke.mjs https://mstrying.github.io/dopamine-quest/
+```
+
+## Logic Test
+
+Run the dependency-free engine tests for XP, streak-adjacent storage resets, gratitude uniqueness, phase parsing, import preview, and puzzle scoring:
+
+```powershell
+node tools/logic-tests.mjs
 ```
 
 ## Upload To GitHub Pages

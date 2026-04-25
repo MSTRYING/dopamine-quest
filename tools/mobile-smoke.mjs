@@ -548,10 +548,39 @@ async function testPwa(cdp) {
       cdp,
       `(async () => Boolean(await navigator.serviceWorker.getRegistration()))()`
     );
-    if (registered) return;
+    if (registered) {
+      await evaluate(cdp, `(async () => Boolean(await navigator.serviceWorker.ready))()`);
+      await assertOfflineReload(cdp);
+      return;
+    }
     await delay(250);
   }
   throw new Error("Service worker did not register.");
+}
+
+async function assertOfflineReload(cdp) {
+  await cdp.send("Network.enable");
+  await cdp.send("Network.emulateNetworkConditions", {
+    offline: true,
+    latency: 0,
+    downloadThroughput: 0,
+    uploadThroughput: 0,
+    connectionType: "none"
+  });
+  try {
+    await cdp.send("Page.navigate", { url: await evaluate(cdp, "location.href") });
+    await waitFor(cdp, "document.querySelector('.bottom-nav') && document.readyState === 'complete'", 10000);
+    const loaded = await evaluate(cdp, `document.body.innerText.includes('Dopamine Quest')`);
+    assert(loaded, "Offline reload did not render the app shell.");
+  } finally {
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+      connectionType: "wifi"
+    });
+  }
 }
 
 async function main() {

@@ -51,7 +51,9 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Added GitHub Pages/mobile readiness files: `README.md`, `.nojekyll`, `manifest.webmanifest`, and `assets/icon.svg`.
 - [x] Validated manifest JSON and static serving for app, CSS, JS, manifest, and icon.
 - [x] Added dependency-free Chrome/Edge mobile smoke test in `tools/mobile-smoke.mjs`.
+- [x] Added dependency-free logic tests in `tools/logic-tests.mjs` for XP, gratitude uniqueness, resets, phase parsing, import preview, and puzzle scoring.
 - [x] Ran local mobile smoke test at 390x844 with Today, Phase, Puzzles, Journal, Reports, Settings, Sudoku, find-the-difference, logic-grid, goals, gratitude, settings, import, and month report flows.
+- [x] Added offline reload verification to the mobile smoke test for service worker/PWA coverage.
 - [x] Fixed modal click handling so Cancel/Delete/action buttons inside modals work while backdrop clicks still close the modal.
 - [x] Locked puzzle games behind daily reward tier: games now unlock only after Bronze or better is earned.
 - [x] Updated mobile smoke test to verify puzzle reward locking before earning XP, then earn Bronze before puzzle simulation.
@@ -74,3 +76,5 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Added service worker offline cache for GitHub Pages/static hosting.
 - [x] Re-run full local mobile smoke test after improvement pass.
 - [x] Re-run live GitHub Pages mobile smoke test after push.
+- [x] Run pure logic tests after bug-check pass.
+- [x] Re-run local and live mobile smoke tests with offline reload verification.
