@@ -44,7 +44,7 @@ node tools/mobile-smoke.mjs https://mstrying.github.io/dopamine-quest/
 - Dynamic quest phases, tasks, timers, XP, levels, streaks, achievements, and daily tiers.
 - Settings with phase add/edit/delete/reorder/toggle, music links, XP preferences, resets, import/export, and raw data view.
 - Gratitude journal, weekly/monthly goals, Brain Report, month-end tarot card, and seasonal themes.
-- Sudoku, find-the-difference, and logic-grid puzzles with difficulty/enjoyment ratings.
+- Sudoku, find-the-difference, and logic-grid puzzles unlock only as daily XP tier rewards, with difficulty/enjoyment ratings.
 
 ## Data
 

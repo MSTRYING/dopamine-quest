@@ -321,6 +321,45 @@ async function testQuestFlow(cdp) {
   assert(state.phaseCompletions["morning-ignition"], "Morning Ignition did not complete.");
 }
 
+async function earnPuzzleReward(cdp) {
+  await evaluate(
+    cdp,
+    `(() => {
+      const settings = JSON.parse(localStorage.getItem('dq_settings'));
+      settings.dailyXpGoal = 100;
+      settings.autoDailyGoal = false;
+      localStorage.setItem('dq_settings', JSON.stringify(settings));
+      location.hash = 'today';
+      location.reload();
+    })()`
+  );
+  await waitFor(cdp, `document.querySelector('main.today-view')`);
+  await evaluate(
+    cdp,
+    `(() => {
+      const row = [...document.querySelectorAll('[data-action="open-phase"]')].find((el) => el.textContent.includes('Morning Routine'));
+      row?.click();
+    })()`
+  );
+  await waitFor(cdp, `document.body.innerText.includes('Make the bed')`);
+  let safety = 0;
+  while ((await evaluate(cdp, `Boolean(document.querySelector('[data-action="complete-task"]:not([disabled])'))`)) && safety < 8) {
+    await click(cdp, "[data-action='complete-task']:not([disabled])");
+    safety += 1;
+  }
+  await waitFor(cdp, `document.querySelector("[data-action='complete-phase']:not([disabled])")`);
+  await click(cdp, "[data-action='complete-phase']");
+  const tier = await evaluate(
+    cdp,
+    `(() => {
+      const logs = JSON.parse(localStorage.getItem('dq_daily_log'));
+      const today = new Date().toISOString().slice(0, 10);
+      return logs[today].tier;
+    })()`
+  );
+  assert(tier !== "None", `Puzzle reward was not unlocked after earning XP; tier=${tier}`);
+}
+
 async function testJournalAndGoals(cdp) {
   await gotoRoute(cdp, "journal");
   await setValue(cdp, "textarea[name='gratitude']", "A small functional test with a surprisingly nice hat.");
@@ -357,6 +396,11 @@ async function testSettings(cdp) {
 
 async function testSudoku(cdp) {
   await gotoRoute(cdp, "puzzles");
+  const locked = await evaluate(cdp, `document.querySelector("[data-type='sudoku']")?.disabled`);
+  if (locked) {
+    await earnPuzzleReward(cdp);
+    await gotoRoute(cdp, "puzzles");
+  }
   const difficulty = await evaluate(cdp, `document.querySelector("[data-type='sudoku']").dataset.difficulty`);
   await click(cdp, "[data-type='sudoku']");
   await waitFor(cdp, `document.querySelector('.sudoku')`, 3000).catch(async () => {

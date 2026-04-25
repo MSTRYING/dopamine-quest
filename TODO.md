@@ -53,6 +53,8 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Added dependency-free Chrome/Edge mobile smoke test in `tools/mobile-smoke.mjs`.
 - [x] Ran local mobile smoke test at 390x844 with Today, Phase, Puzzles, Journal, Reports, Settings, Sudoku, find-the-difference, logic-grid, goals, gratitude, settings, import, and month report flows.
 - [x] Fixed modal click handling so Cancel/Delete/action buttons inside modals work while backdrop clicks still close the modal.
+- [x] Locked puzzle games behind daily reward tier: games now unlock only after Bronze or better is earned.
+- [x] Updated mobile smoke test to verify puzzle reward locking before earning XP, then earn Bronze before puzzle simulation.
 - [x] Final TODO update.
 - [x] Browser smoke test on local static server.
 - [ ] Mobile device test after GitHub Pages upload.

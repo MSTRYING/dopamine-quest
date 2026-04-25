@@ -588,6 +588,15 @@ function fullResetAction() {
 }
 
 function startPuzzle(type, difficulty) {
+  const log = getTodayLog(state);
+  const goal = calculateDailyGoal(state);
+  const tier = getTier(log.xpEarned, goal);
+  if (tier === "None") {
+    const needed = Math.max(0, Math.ceil(goal * 0.5 - (log.xpEarned || 0)));
+    toast(`Puzzle rewards unlock at Bronze. Earn ${needed} more XP first.`);
+    render();
+    return;
+  }
   puzzleSession = createPuzzleSession(type, difficulty);
   render();
 }

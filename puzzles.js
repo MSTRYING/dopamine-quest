@@ -8,30 +8,37 @@ const DIFF_COUNT = { easy: 2, medium: 3, hard: 4, expert: 5 };
 export function renderPuzzleHub(state) {
   const log = state.dailyLog[todayKey()] || { xpEarned: 0 };
   const goal = calculateDailyGoal(state);
-  const tier = log.tier || getTier(log.xpEarned, goal);
+  const tier = getTier(log.xpEarned || 0, goal);
+  const unlocked = tier !== "None";
   const difficulty = tierDifficulty(tier);
   const profile = state.puzzles.brainProfile;
+  const remaining = Math.max(0, Math.ceil(goal * 0.5 - (log.xpEarned || 0)));
+  const startAttrs = unlocked ? "" : "disabled aria-disabled=\"true\"";
   return `
     <section class="panel hero puzzle-view">
       <p class="eyebrow">Daily Puzzle Reward</p>
-      <h2>Brain candy with receipts.</h2>
-      <p class="muted">Today's tier unlocks <strong>${escapeHtml(difficulty)}</strong> difficulty. After each puzzle, rate difficulty and enjoyment so the app learns what your brain actually likes.</p>
-      ${tags([`Tier: ${tier || "None"}`, `Recommended: ${profile.recommendedType}`, `Next difficulty: ${profile.recommendedDifficulty}`])}
+      <h2>${unlocked ? "Reward unlocked." : "Earn the brain candy."}</h2>
+      <p class="muted">${
+        unlocked
+          ? `Today's ${escapeHtml(tier)} tier unlocks <strong>${escapeHtml(difficulty)}</strong> difficulty. After each puzzle, rate difficulty and enjoyment so the app learns what your brain actually likes.`
+          : `Games unlock once you reach Bronze: 50% of your daily XP goal. Earn ${remaining} more XP to open today's puzzle reward.`
+      }</p>
+      ${tags([`Tier: ${tier || "None"}`, unlocked ? `Unlocked: ${difficulty}` : `${remaining} XP to Bronze`, `Recommended: ${profile.recommendedType}`])}
     </section>
     <section class="panel">
       <h3>Sudoku</h3>
-      <p class="muted">Classic number sorcery. Validation included. Shame excluded.</p>
-      <button class="btn full" data-action="start-puzzle" data-type="sudoku" data-difficulty="${difficulty}">Start Sudoku</button>
+      <p class="muted">${unlocked ? "Classic number sorcery. Validation included. Shame excluded." : "Locked until Bronze. The grid goblin respects boundaries."}</p>
+      <button class="btn full" data-action="start-puzzle" data-type="sudoku" data-difficulty="${difficulty}" ${startAttrs}>${unlocked ? "Start Sudoku" : "Locked Reward"}</button>
     </section>
     <section class="panel">
       <h3>Find the Difference</h3>
-      <p class="muted">Procedural canvas scene with sneaky visual changes.</p>
-      <button class="btn full" data-action="start-puzzle" data-type="difference" data-difficulty="${difficulty}">Start Difference Hunt</button>
+      <p class="muted">${unlocked ? "Procedural canvas scene with sneaky visual changes." : "Locked until Bronze. Sneaky visual chaos must be earned."}</p>
+      <button class="btn full" data-action="start-puzzle" data-type="difference" data-difficulty="${difficulty}" ${startAttrs}>${unlocked ? "Start Difference Hunt" : "Locked Reward"}</button>
     </section>
     <section class="panel">
       <h3>Logic Grid</h3>
-      <p class="muted">Scheduling-style deduction, because apparently we enjoy suffering with structure.</p>
-      <button class="btn full" data-action="start-puzzle" data-type="logic-grid" data-difficulty="${profile.recommendedDifficulty || difficulty}">Start Logic Grid</button>
+      <p class="muted">${unlocked ? "Scheduling-style deduction, because apparently we enjoy suffering with structure." : "Locked until Bronze. The scheduling goblin is behind a velvet rope."}</p>
+      <button class="btn full" data-action="start-puzzle" data-type="logic-grid" data-difficulty="${profile.recommendedDifficulty || difficulty}" ${startAttrs}>${unlocked ? "Start Logic Grid" : "Locked Reward"}</button>
     </section>
     ${panel("Puzzle Brain Database", renderPuzzleHistory(state), { className: "full-span" })}
   `;
