@@ -1,4 +1,4 @@
-const CACHE_NAME = "dopamine-quest-static-v5";
+const CACHE_NAME = "dopamine-quest-static-v6";
 const APP_SHELL = [
   "./",
   "./index.html",

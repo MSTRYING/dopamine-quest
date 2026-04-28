@@ -291,13 +291,21 @@ async function routeCheck(cdp, route) {
           return { tag: el.tagName, text: (el.textContent || el.getAttribute('aria-label') || el.name || '').trim(), width: r.width, height: r.height };
         })
         .filter((r) => r.width > 0 && r.height > 0 && (r.height < 34 || r.width < 30));
+      const zoomRiskControls = [...document.querySelectorAll('input:not([type="hidden"]), textarea, select')]
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          const fontSize = Number.parseFloat(getComputedStyle(el).fontSize);
+          return { tag: el.tagName, name: el.name || el.className || '', width: r.width, height: r.height, fontSize };
+        })
+        .filter((r) => r.width > 0 && r.height > 0 && r.fontSize < 16);
       return {
         route: ${JSON.stringify(route)},
         scrollWidth: Math.max(doc.scrollWidth, body.scrollWidth),
         innerWidth,
         hasNav: Boolean(document.querySelector('.bottom-nav')),
         panels: document.querySelectorAll('.panel').length,
-        tinyTargets
+        tinyTargets,
+        zoomRiskControls
       };
     })()`
   );
@@ -305,6 +313,7 @@ async function routeCheck(cdp, route) {
   assert(check.panels > 0, `${route}: no panels rendered`);
   assert(check.scrollWidth <= check.innerWidth + 2, `${route}: horizontal overflow ${check.scrollWidth} > ${check.innerWidth}`);
   assert(check.tinyTargets.length === 0, `${route}: tiny tap targets ${JSON.stringify(check.tinyTargets)}`);
+  assert(check.zoomRiskControls.length === 0, `${route}: controls below 16px can trigger mobile focus zoom ${JSON.stringify(check.zoomRiskControls)}`);
   return check;
 }
 

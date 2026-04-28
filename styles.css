@@ -721,6 +721,7 @@ select {
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.18);
   color: var(--ink);
+  font-size: 16px;
   padding: 12px;
   outline: none;
 }
@@ -733,7 +734,7 @@ textarea {
 .code-textarea {
   min-height: 280px;
   font-family: "Cascadia Code", "Consolas", monospace;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .task-editor {
@@ -1179,7 +1180,7 @@ select:focus {
 
   .sudoku input {
     min-width: 0;
-    font-size: clamp(15px, 7vw, 22px);
+    font-size: clamp(16px, 7vw, 22px);
   }
 
   .logic-grid th,
