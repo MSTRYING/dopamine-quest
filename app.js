@@ -12,8 +12,10 @@ import {
   getTier,
   maybeSwapMonthlyTheme,
   quoteOfDay,
-  startPhase,
+  startTaskTimer,
+  stopTaskTimer,
   taskKey,
+  taskTimerElapsedMs,
   tierDifficulty,
   updateStreakOnOpen
 } from "./game.js";
@@ -67,6 +69,9 @@ let route = getRoute();
 let activePhaseId = "";
 let puzzleSession = null;
 let audioContext = null;
+let updateReady = false;
+let waitingWorker = null;
+let refreshingForUpdate = false;
 
 updateStreakOnOpen(state);
 maybeSwapMonthlyTheme(state);
@@ -82,6 +87,9 @@ window.addEventListener("hashchange", () => {
 document.addEventListener("click", handleClick);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("input", handleInput);
+setInterval(() => {
+  if (route === "phase" && hasRunningTaskTimer()) render();
+}, 1000);
 
 function getRoute() {
   const hash = window.location.hash.replace("#", "");
@@ -138,10 +146,32 @@ function pulse(pattern) {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || window.location.protocol === "file:") return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((error) => {
-      console.warn("Dopamine Quest offline cache could not register.", error);
-    });
+    navigator.serviceWorker.register("./sw.js")
+      .then((registration) => {
+        if (registration.waiting && navigator.serviceWorker.controller) markUpdateReady(registration.waiting);
+        registration.addEventListener("updatefound", () => {
+          const worker = registration.installing;
+          worker?.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) markUpdateReady(worker);
+          });
+        });
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshingForUpdate) return;
+          refreshingForUpdate = true;
+          window.location.reload();
+        });
+      })
+      .catch((error) => {
+        console.warn("Dopamine Quest offline cache could not register.", error);
+      });
   });
+}
+
+function markUpdateReady(worker) {
+  waitingWorker = worker;
+  updateReady = true;
+  render();
+  toast("A fresh quest update is ready.");
 }
 
 function commit(message = "") {
@@ -171,6 +201,7 @@ function render() {
   app.innerHTML = `
     <div class="phone">
       ${renderHud(state)}
+      ${renderUpdateBanner()}
       <main class="view ${route}-view">${body}</main>
       ${renderNav(route)}
     </div>
@@ -179,6 +210,46 @@ function render() {
   if (puzzleSession?.type === "difference") {
     requestAnimationFrame(() => drawDifferenceCanvases(puzzleSession));
   }
+}
+
+function renderUpdateBanner() {
+  if (!updateReady) return "";
+  return `
+    <section class="update-banner" role="status" aria-live="polite">
+      <div>
+        <strong>New update ready</strong>
+        <span class="muted small">Progress is saved before the app refreshes.</span>
+      </div>
+      <button class="btn" data-action="apply-update">Update now</button>
+    </section>
+  `;
+}
+
+function applyUpdateAction() {
+  saveState(state);
+  toast("Progress saved. Refreshing into the new build.");
+  if (waitingWorker) {
+    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    return;
+  }
+  window.location.reload();
+}
+
+function hasRunningTaskTimer() {
+  const log = getTodayLog(state);
+  return Object.values(log.taskTimers || {}).some((timer) => timer?.startedAt);
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${String(mins).padStart(2, "0")}m`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function renderToday() {
@@ -255,7 +326,9 @@ function renderTodaySummary(phases, log) {
         <div class="stat"><strong>${closedPhases}/${phases.length}</strong><span class="muted small">phases closed</span></div>
       </div>
       <div class="grid two">
-        <button class="btn secondary full" data-route="${nextPhase ? "phase" : "reports"}">${nextPhase ? "Continue questing" : "View report"}</button>
+        ${nextPhase
+          ? `<button class="btn secondary full" data-action="open-phase" data-id="${escapeHtml(nextPhase.id)}">Continue questing</button>`
+          : `<button class="btn secondary full" data-route="reports">View report</button>`}
         <button class="btn full" data-action="open-day-reward">Day-close reward card</button>
       </div>
     </section>
@@ -313,9 +386,13 @@ function renderPhase() {
       <p class="muted">${escapeHtml(phase.description || phase.intro || "")}</p>
       ${tags([phase.trigger?.label, phase.music?.mood, phase.music?.bpm])}
       <div class="grid two">
-        <button class="btn" data-action="start-phase" data-id="${escapeHtml(phase.id)}">Start timer</button>
+        <div class="timer-note">
+          <strong>Task timers are individual</strong>
+          <span class="muted small">Start the timer on the exact task you are doing. Phase close uses those task receipts.</span>
+        </div>
         ${playlist ? `<a class="btn secondary" href="${escapeHtml(playlist)}" target="_blank" rel="noreferrer">Open Apple Music</a>` : `<button class="btn secondary" data-route="settings">Add music</button>`}
       </div>
+      ${phase.id === "work-mode" ? renderWorkGoalPanel(log) : ""}
     </section>
     <section class="panel full-span">
       <p class="eyebrow">Tasks</p>
@@ -330,14 +407,41 @@ function renderPhase() {
 function renderTaskRow(phase, task, log) {
   const key = taskKey(phase.id, task.id);
   const done = Boolean(log.completedTasks[key]);
+  const timer = log.taskTimers?.[key] || {};
+  const running = Boolean(timer.startedAt);
+  const elapsedMs = done ? Number(log.completedTasks[key]?.timerMs || 0) : taskTimerElapsedMs(log, key);
+  const targetMs = Math.max(0, Number(task.duration || 0) * 60000);
+  const timerPct = targetMs ? Math.min(100, Math.round((elapsedMs / targetMs) * 100)) : 0;
   return `
-    <button class="task-row ${done ? "done" : ""}" data-action="complete-task" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" style="--phase-color:${escapeHtml(phase.color)}" ${done ? "disabled" : ""}>
+    <article class="task-row ${done ? "done" : ""} ${running ? "timer-running" : ""}" style="--phase-color:${escapeHtml(phase.color)}">
       <span class="check ${done ? "done" : ""}">✓</span>
       <span class="task-body">
         <strong>${escapeHtml(task.name)}</strong>
-        <span class="muted small">${escapeHtml(task.type)} · ${task.duration || 0} min · ${task.xp || 0} XP ${task.bonusCondition ? `· ${escapeHtml(task.bonusCondition)}` : ""}</span>
+        <span class="muted small">${escapeHtml(task.type)} · ${task.duration || 0} min target · ${task.xp || 0} XP · XP ID ${escapeHtml(key)} ${task.bonusCondition ? `· ${escapeHtml(task.bonusCondition)}` : ""}</span>
+        <span class="task-timer">
+          <span class="muted small">${running ? "Timer running" : elapsedMs ? "Tracked time" : "Timer ready"} · ${formatDuration(elapsedMs)}${targetMs ? ` / ${task.duration}m` : ""}</span>
+          <span class="mini-track"><span class="mini-fill" style="width:${timerPct}%"></span></span>
+        </span>
       </span>
-    </button>
+      <span class="task-actions">
+        <button class="btn secondary" type="button" data-action="toggle-task-timer" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" ${done ? "disabled" : ""}>${running ? "Stop" : elapsedMs ? "Resume" : "Start"} timer</button>
+        <button class="btn" type="button" data-action="complete-task" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Complete"}</button>
+      </span>
+    </article>
+  `;
+}
+
+function renderWorkGoalPanel(log) {
+  const goal = log.notes?.workDailyGoal;
+  const text = typeof goal === "string" ? goal : goal?.text || "";
+  return `
+    <div class="work-goal-card">
+      <div>
+        <p class="eyebrow">Today's Work Mode Goal</p>
+        <strong>${text ? escapeHtml(text) : "No work goal set yet."}</strong>
+      </div>
+      <button class="btn secondary" type="button" data-action="edit-work-goal">${text ? "Edit goal" : "Set goal"}</button>
+    </div>
   `;
 }
 
@@ -418,9 +522,11 @@ function handleClick(event) {
 
   if (action === "close-modal") return closeModal();
   if (action === "open-phase") return openPhase(actionNode.dataset.id);
-  if (action === "start-phase") return startCurrentPhase(actionNode.dataset.id);
+  if (action === "toggle-task-timer") return toggleTaskTimerAction(actionNode.dataset.phase, actionNode.dataset.task);
   if (action === "complete-task") return completeTaskAction(actionNode.dataset.phase, actionNode.dataset.task);
   if (action === "complete-phase") return completePhaseAction(actionNode.dataset.id);
+  if (action === "edit-work-goal") return showWorkGoalModal();
+  if (action === "apply-update") return applyUpdateAction();
   if (action === "mark-month-report") return markMonthReport();
   if (action === "add-phase") return showModal(renderPhaseEditor(state));
   if (action === "edit-phase") return showModal(renderPhaseEditor(state, actionNode.dataset.id));
@@ -457,6 +563,7 @@ function handleSubmit(event) {
   const action = form.dataset.submit;
   if (action === "task-input") return submitTaskInput(form);
   if (action === "phase-end") return submitPhaseEnd(form);
+  if (action === "work-goal") return saveWorkGoal(form);
   if (action === "save-settings") return saveSettings(form);
   if (action === "save-phase-json") return savePhaseJson(form);
   if (action === "add-gratitude") return addGratitudeAction(form);
@@ -474,14 +581,53 @@ function handleInput(event) {
 
 function openPhase(id) {
   activePhaseId = id;
-  startPhase(state, id);
-  commit("");
   navigate("phase");
+  if (id === "work-mode" && !getWorkGoalText()) showWorkGoalModal();
 }
 
-function startCurrentPhase(id) {
-  startPhase(state, id);
-  commit("Timer started. The quest has noticed.");
+function toggleTaskTimerAction(phaseId, taskId) {
+  const log = getTodayLog(state);
+  const key = taskKey(phaseId, taskId);
+  const running = Boolean(log.taskTimers?.[key]?.startedAt);
+  const result = running ? stopTaskTimer(state, phaseId, taskId) : startTaskTimer(state, phaseId, taskId);
+  commit(result.ok ? (running ? "Task timer paused and saved." : "Task timer started.") : result.message);
+}
+
+function getWorkGoalText() {
+  const goal = getTodayLog(state).notes?.workDailyGoal;
+  return typeof goal === "string" ? goal : goal?.text || "";
+}
+
+function showWorkGoalModal() {
+  const existing = getWorkGoalText();
+  showModal(`
+    <form class="form-grid" data-submit="work-goal">
+      <p class="eyebrow">Work Mode Intention</p>
+      <h3>What do you want to accomplish today?</h3>
+      <p class="muted">This saves into today's log so the app can compare your progress with the goal you chose before starting work.</p>
+      <label>Daily work goal
+        <textarea name="workGoal" required placeholder="Example: finish the presentation notes and send the update.">${escapeHtml(existing)}</textarea>
+      </label>
+      <button class="btn full" type="submit">${existing ? "Update goal" : "Activate Work Mode"}</button>
+      <button class="btn secondary full" type="button" data-action="close-modal">Not yet</button>
+    </form>
+  `);
+}
+
+function saveWorkGoal(form) {
+  const text = String(new FormData(form).get("workGoal") || "").trim();
+  if (!text) {
+    toast("Work Mode needs one clear goal before the engine starts humming.");
+    return;
+  }
+  const log = getTodayLog(state);
+  log.notes.workDailyGoal = {
+    text,
+    date: todayKey(),
+    updatedAt: new Date().toISOString()
+  };
+  closeModal();
+  commit("Work Mode goal saved.");
 }
 
 function completeTaskAction(phaseId, taskId) {

@@ -336,6 +336,7 @@ export function renderTaskEditorRow(task = {}, index = 0) {
           <button class="icon-btn danger-lite" type="button" data-action="remove-task-row" aria-label="Remove task">×</button>
         </div>
       </div>
+      <p class="muted small">XP identifier: ${escapeHtml(task.id || "created from task name when saved")}</p>
       <label>Task name
         <input name="taskName" value="${escapeHtml(task.name || "")}" required placeholder="Make the bed">
       </label>

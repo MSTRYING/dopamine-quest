@@ -14,7 +14,7 @@ This checklist is the live build tracker for the static GitHub Pages app.
 ## Chunk 2: Core Quest Engine UI
 
 - [x] Render Today, Active Phase, and dynamic phase/task UI from `dq_phases`.
-- [x] Implement task completion, mandatory inputs, timers, phase bonuses, speed bonuses, and day close.
+- [x] Implement task completion, mandatory inputs, per-task timers, phase bonuses, speed bonuses, and day close.
 - [x] Show HUD with level, XP bar, streak, daily tier, and active theme.
 
 ## Chunk 3: Settings And Phase Builder
@@ -79,6 +79,10 @@ This checklist is the live build tracker for the static GitHub Pages app.
 - [x] Added backup reminder status and last-export tracking.
 - [x] Added service worker offline cache for GitHub Pages/static hosting.
 - [x] Added manifest screenshots and shortcuts for better mobile install metadata.
+- [x] Added sticky update-ready banner so installed home-screen shortcuts can refresh into the newest build after progress is saved.
+- [x] Added Work Mode daily goal prompt when activating the work phase.
+- [x] Added XP identifiers and timer receipts to completed tasks and task analytics.
+- [x] Added localStorage log repair/default merging so progress survives code/schema changes.
 - [x] Re-run full local mobile smoke test after improvement pass.
 - [x] Re-run live GitHub Pages mobile smoke test after push.
 - [x] Run pure logic tests after bug-check pass.

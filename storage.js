@@ -113,6 +113,7 @@ export function getTodayLog(state, date = todayKey()) {
       completedTasks: {},
       phaseStarts: {},
       phaseCompletions: {},
+      taskTimers: {},
       taskEvents: [],
       xpEarned: 0,
       puzzleXp: 0,
@@ -123,6 +124,7 @@ export function getTodayLog(state, date = todayKey()) {
       comebackAwarded: false
     };
   }
+  repairDailyLog(state.dailyLog[date], date);
   return state.dailyLog[date];
 }
 
@@ -203,4 +205,21 @@ function mergeDefaults(defaultValue, storedValue) {
     merged[key] = key in merged ? mergeDefaults(merged[key], value) : value;
   });
   return merged;
+}
+
+function repairDailyLog(log, date) {
+  log.date = log.date || date;
+  log.completedTasks = log.completedTasks || {};
+  log.phaseStarts = log.phaseStarts || {};
+  log.phaseCompletions = log.phaseCompletions || {};
+  log.taskTimers = log.taskTimers || {};
+  log.taskEvents = Array.isArray(log.taskEvents) ? log.taskEvents : [];
+  log.xpEarned = Number(log.xpEarned || 0);
+  log.puzzleXp = Number(log.puzzleXp || 0);
+  log.tier = log.tier || "None";
+  log.gratitudeEntryIds = Array.isArray(log.gratitudeEntryIds) ? log.gratitudeEntryIds : [];
+  log.notes = log.notes || {};
+  log.perfectDayAwarded = Boolean(log.perfectDayAwarded);
+  log.comebackAwarded = Boolean(log.comebackAwarded);
+  return log;
 }

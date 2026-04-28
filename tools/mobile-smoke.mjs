@@ -313,7 +313,10 @@ async function testQuestFlow(cdp) {
   assert(chestLocked, "Reward chest should start locked before earning Bronze.");
 
   await gotoRoute(cdp, "phase");
-  await click(cdp, "[data-action='start-phase']");
+  await click(cdp, "[data-action='toggle-task-timer']");
+  await waitFor(cdp, `document.querySelector('.task-row.timer-running')`);
+  await delay(1100);
+  await click(cdp, "[data-action='toggle-task-timer']");
   await click(cdp, "[data-action='complete-task']");
   await setValue(cdp, "textarea[name='taskInput']", "Make the day kinder and less feral.");
   await click(cdp, "form[data-submit='task-input'] button[type='submit']");
@@ -329,10 +332,49 @@ async function testQuestFlow(cdp) {
   );
   assert(state.xpEarned > 0, "Quest flow did not award XP.");
   assert(state.phaseCompletions["morning-ignition"], "Morning Ignition did not complete.");
+  assert(Object.values(state.completedTasks).some((task) => task.xpIdentifier && task.timerMs > 0), "Completed tasks did not keep XP identifiers and timer receipts.");
   await gotoRoute(cdp, "today");
   await click(cdp, "[data-action='open-day-reward']");
   await waitFor(cdp, `document.querySelector('#modal-root')?.innerText.toLowerCase().includes('day close reward')`);
   await click(cdp, "[data-action='close-modal']");
+}
+
+async function testWorkModeGoal(cdp) {
+  await evaluate(
+    cdp,
+    `(() => {
+      const phases = JSON.parse(localStorage.getItem('dq_phases'));
+      const work = phases.find((phase) => phase.id === 'work-mode');
+      const today = new Date().getDay();
+      if (work) {
+        work.active = true;
+        work.days = Array.from(new Set([...(work.days || []), today]));
+      }
+      localStorage.setItem('dq_phases', JSON.stringify(phases));
+      location.hash = 'today';
+      location.reload();
+    })()`
+  );
+  await waitFor(cdp, `document.querySelector('main.today-view')`);
+  await evaluate(
+    cdp,
+    `(() => {
+      const row = [...document.querySelectorAll('[data-action="open-phase"]')].find((el) => el.dataset.id === 'work-mode');
+      row?.click();
+    })()`
+  );
+  await waitFor(cdp, `document.querySelector("form[data-submit='work-goal']")`);
+  await setValue(cdp, "textarea[name='workGoal']", "Finish the presentation pass and ship the live update.");
+  await click(cdp, "form[data-submit='work-goal'] button[type='submit']");
+  const goal = await evaluate(
+    cdp,
+    `(() => {
+      const logs = JSON.parse(localStorage.getItem('dq_daily_log'));
+      const today = new Date().toISOString().slice(0, 10);
+      return logs[today]?.notes?.workDailyGoal?.text || "";
+    })()`
+  );
+  assert(goal.includes("presentation"), "Work Mode did not save the daily goal prompt.");
 }
 
 async function earnPuzzleReward(cdp) {
@@ -631,6 +673,7 @@ async function main() {
     }
 
     await testQuestFlow(cdp);
+    await testWorkModeGoal(cdp);
     await testJournalAndGoals(cdp);
     await testSettings(cdp);
     await testSudoku(cdp);

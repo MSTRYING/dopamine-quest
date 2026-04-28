@@ -141,6 +141,59 @@ export function startPhase(state, phaseId, date = todayKey()) {
   if (!log.phaseStarts[phaseId]) log.phaseStarts[phaseId] = new Date().toISOString();
 }
 
+export function startTaskTimer(state, phaseId, taskId, date = todayKey()) {
+  const phase = state.phases.find((item) => item.id === phaseId);
+  const task = phase?.tasks.find((item) => item.id === taskId);
+  if (!phase || !task) return { ok: false, message: "Task not found." };
+  const log = getTodayLog(state, date);
+  const key = taskKey(phaseId, taskId);
+  const timer = log.taskTimers[key] || {
+    phaseId,
+    taskId,
+    xpIdentifier: key,
+    name: task.name,
+    accumulatedMs: 0,
+    sessions: []
+  };
+  if (!timer.startedAt) timer.startedAt = new Date().toISOString();
+  timer.phaseId = phaseId;
+  timer.taskId = taskId;
+  timer.xpIdentifier = key;
+  timer.name = task.name;
+  timer.accumulatedMs = Math.max(0, Number(timer.accumulatedMs || 0));
+  timer.sessions = Array.isArray(timer.sessions) ? timer.sessions : [];
+  log.taskTimers[key] = timer;
+  return { ok: true, timer };
+}
+
+export function stopTaskTimer(state, phaseId, taskId, date = todayKey()) {
+  const log = getTodayLog(state, date);
+  const key = taskKey(phaseId, taskId);
+  const timer = log.taskTimers[key];
+  if (!timer?.startedAt) return { ok: false, message: "No active task timer." };
+  const stoppedAt = new Date();
+  const startedAtMs = new Date(timer.startedAt).getTime();
+  const elapsedMs = Math.max(0, stoppedAt.getTime() - startedAtMs);
+  timer.accumulatedMs = Math.max(0, Number(timer.accumulatedMs || 0)) + elapsedMs;
+  timer.sessions = Array.isArray(timer.sessions) ? timer.sessions : [];
+  timer.sessions.push({
+    startedAt: timer.startedAt,
+    stoppedAt: stoppedAt.toISOString(),
+    elapsedMs
+  });
+  timer.lastStoppedAt = stoppedAt.toISOString();
+  delete timer.startedAt;
+  return { ok: true, timer, elapsedMs };
+}
+
+export function taskTimerElapsedMs(log, key, now = Date.now()) {
+  const timer = log.taskTimers?.[key];
+  if (!timer) return 0;
+  const accumulated = Math.max(0, Number(timer.accumulatedMs || 0));
+  if (!timer.startedAt) return accumulated;
+  return accumulated + Math.max(0, now - new Date(timer.startedAt).getTime());
+}
+
 export function completeTask(state, phaseId, taskId, input = "", date = todayKey()) {
   const phase = state.phases.find((item) => item.id === phaseId);
   const task = phase?.tasks.find((item) => item.id === taskId);
@@ -156,21 +209,27 @@ export function completeTask(state, phaseId, taskId, input = "", date = todayKey
     if (!gratitude.ok) return gratitude;
     log.gratitudeEntryIds.push(gratitude.entry.id);
   }
+  if (log.taskTimers[key]?.startedAt) stopTaskTimer(state, phaseId, taskId, date);
+  const timerMs = taskTimerElapsedMs(log, key);
+  const timerMinutes = Math.round(timerMs / 60000);
   const multiplier = streakMultiplier(state.streaks.current) * hotStreakMultiplier(log);
   const xp = Math.round(Number(task.xp || 0) * multiplier);
   log.completedTasks[key] = {
     phaseId,
     taskId,
+    xpIdentifier: key,
     name: task.name,
     input,
     baseXp: Number(task.xp || 0),
     xp,
+    timerMs,
+    timerMinutes,
     at: new Date().toISOString(),
     multiplier
   };
-  log.taskEvents.push({ phaseId, taskId, name: task.name, xp, at: new Date().toISOString() });
+  log.taskEvents.push({ phaseId, taskId, xpIdentifier: key, name: task.name, xp, timerMs, at: new Date().toISOString() });
   awardXp(state, xp, date);
-  updateAnalyticsForTask(state, phase, task, date, xp);
+  updateAnalyticsForTask(state, phase, task, date, xp, timerMs);
   unlockAchievements(state, { type: "task", phaseId, taskId, date });
   return { ok: true, xp, levelInfo: getLevelInfo(state.character.totalXp) };
 }
@@ -188,10 +247,13 @@ export function completePhase(state, phaseId, endInput = "", date = todayKey()) 
   if (log.phaseCompletions[phaseId]) return { ok: false, message: "Phase already closed." };
 
   let bonus = Number(phase.xp?.completionBonus || 0);
-  const startedAt = log.phaseStarts[phaseId] ? new Date(log.phaseStarts[phaseId]).getTime() : Date.now();
-  const elapsedMinutes = Math.max(0, Math.round((Date.now() - startedAt) / 60000));
+  const taskTimerMs = tasks.reduce((sum, task) => {
+    const key = taskKey(phase.id, task.id);
+    return sum + Number(log.completedTasks[key]?.timerMs || taskTimerElapsedMs(log, key) || 0);
+  }, 0);
+  const elapsedMinutes = Math.max(0, Math.round(taskTimerMs / 60000));
   const targetMinutes = activeTasksForPhase(state, phase).reduce((sum, task) => sum + Number(task.duration || 0), 0);
-  if (phase.xp?.speedBonus && elapsedMinutes <= targetMinutes) bonus += Number(phase.xp.speedBonus || 0);
+  if (phase.xp?.speedBonus && taskTimerMs > 0 && targetMinutes > 0 && elapsedMinutes <= targetMinutes) bonus += Number(phase.xp.speedBonus || 0);
   if (phase.xp?.streakBonus) bonus = Math.round(bonus * 1.2);
   log.phaseCompletions[phaseId] = {
     phaseId,
@@ -302,19 +364,24 @@ export function addGratitude(state, text, date = todayKey()) {
   return { ok: true, entry };
 }
 
-export function updateAnalyticsForTask(state, phase, task, date, xp) {
+export function updateAnalyticsForTask(state, phase, task, date, xp, timerMs = 0) {
   const key = taskKey(phase.id, task.id);
   const stat = state.analytics.taskStats[key] || {
     phaseId: phase.id,
     taskId: task.id,
+    xpIdentifier: key,
     name: task.name,
     completed: 0,
     skipped: 0,
     totalXp: 0,
+    totalTimerMs: 0,
     timestamps: []
   };
+  stat.xpIdentifier = key;
+  stat.name = task.name;
   stat.completed += 1;
   stat.totalXp += xp;
+  stat.totalTimerMs = Math.max(0, Number(stat.totalTimerMs || 0)) + Math.max(0, Number(timerMs || 0));
   stat.timestamps.push(new Date().toISOString());
   state.analytics.taskStats[key] = stat;
   const hour = new Date().getHours();

@@ -23,6 +23,15 @@ export function buildBrainInsights(state) {
     });
   }
 
+  const timedTask = [...taskStats].filter((task) => task.totalTimerMs > 0).sort((a, b) => b.totalTimerMs - a.totalTimerMs)[0];
+  if (timedTask) {
+    const avgMinutes = Math.max(1, Math.round((timedTask.totalTimerMs / Math.max(1, timedTask.completed)) / 60000));
+    insights.push({
+      title: "Timer Receipt",
+      body: `${timedTask.name} has the most tracked task time at about ${avgMinutes} minutes per completion. XP identifier: ${timedTask.xpIdentifier || `${timedTask.phaseId}:${timedTask.taskId}`}.`
+    });
+  }
+
   const phaseStats = Object.values(state.analytics.phaseStats || {});
   const bestPhase = [...phaseStats].sort((a, b) => b.completed - a.completed)[0];
   if (bestPhase) {

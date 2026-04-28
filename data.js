@@ -1,4 +1,4 @@
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
 
 export const STORAGE_KEYS = {
   phases: "dq_phases",

@@ -84,6 +84,25 @@ function testXpAndTier() {
   assert(["None", "Bronze", "Silver", "Gold", "Platinum"].includes(log.tier), "Daily tier was not set.");
 }
 
+function testTaskTimersAndAnalytics() {
+  const state = createState();
+  const phase = state.phases.find((item) => item.tasks.some((task) => task.type !== "Display" && !task.inputPrompt));
+  const task = phase.tasks.find((item) => item.type !== "Display" && !item.inputPrompt);
+  const key = game.taskKey(phase.id, task.id);
+  const started = game.startTaskTimer(state, phase.id, task.id);
+  assert(started.ok && storage.getTodayLog(state).taskTimers[key].startedAt, "Task timer did not start.");
+  storage.getTodayLog(state).taskTimers[key].startedAt = new Date(Date.now() - 90000).toISOString();
+  const stopped = game.stopTaskTimer(state, phase.id, task.id);
+  assert(stopped.ok && stopped.timer.accumulatedMs >= 80000, "Task timer did not accumulate elapsed time.");
+  const result = game.completeTask(state, phase.id, task.id);
+  assert(result.ok, `Timed task did not complete: ${result.message}`);
+  const log = storage.getTodayLog(state);
+  assert(log.completedTasks[key].xpIdentifier === key, "Completed task did not store its XP identifier.");
+  assert(log.completedTasks[key].timerMs >= 80000, "Completed task did not keep tracked timer duration.");
+  assert(state.analytics.taskStats[key].xpIdentifier === key, "Task analytics did not store XP identifier.");
+  assert(state.analytics.taskStats[key].totalTimerMs >= 80000, "Task analytics did not accumulate timer duration.");
+}
+
 function testGratitudeUniqueness() {
   const state = createState();
   const first = game.addGratitude(state, "Clean water and a quiet minute", "2026-04-25");
@@ -194,6 +213,7 @@ function testSettingsDefaultMerge() {
 
 const tests = [
   testXpAndTier,
+  testTaskTimersAndAnalytics,
   testGratitudeUniqueness,
   testResetBehavior,
   testPhaseFormParsing,

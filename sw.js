@@ -1,4 +1,4 @@
-const CACHE_NAME = "dopamine-quest-static-v3";
+const CACHE_NAME = "dopamine-quest-static-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -22,7 +22,6 @@ self.addEventListener("install", (event) => {
     caches
       .open(CACHE_NAME)
       .then((cache) => cache.addAll(APP_SHELL.map((path) => new URL(path, self.registration.scope).toString())))
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -50,4 +49,8 @@ self.addEventListener("fetch", (event) => {
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match(new URL("./index.html", self.registration.scope).toString())))
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });

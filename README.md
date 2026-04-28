@@ -35,7 +35,7 @@ node tools/mobile-smoke.mjs https://mstrying.github.io/dopamine-quest/
 
 ## Logic Test
 
-Run the dependency-free engine tests for XP, streak-adjacent storage resets, gratitude uniqueness, structured phase/task parsing, import preview, settings migrations, and puzzle scoring:
+Run the dependency-free engine tests for XP, per-task timers, task analytics, streak-adjacent storage resets, gratitude uniqueness, structured phase/task parsing, import preview, settings migrations, and puzzle scoring:
 
 ```powershell
 node tools/logic-tests.mjs
@@ -51,13 +51,13 @@ node tools/logic-tests.mjs
 
 ## Offline And Installable
 
-The app registers `sw.js` when served from GitHub Pages or another web server. After the first successful load, the static shell is cached for offline reopening. Progress data still lives only in that browser's `localStorage`, so use Settings -> Data & Privacy -> Export JSON for real backups.
+The app registers `sw.js` when served from GitHub Pages or another web server. After the first successful load, the static shell is cached for offline reopening. When a new build is ready, a sticky update banner appears and saves progress before refreshing. Progress data still lives only in that browser's `localStorage`, so use Settings -> Data & Privacy -> Export JSON for real backups.
 
 ## Included
 
-- Dynamic quest phases, tasks, timers, XP, levels, streaks, achievements, and daily tiers.
+- Dynamic quest phases, tasks, per-task timers, XP identifiers, levels, streaks, achievements, and daily tiers.
 - Settings with friendly phase editing, phase add/edit/delete/reorder/toggle, music links, XP preferences, safer resets, import preview/export, and raw data view.
-- Gratitude journal, weekly/monthly goals, Brain Report, month-end tarot card, and seasonal themes.
+- Gratitude journal, Work Mode daily goal prompt, weekly/monthly goals, Brain Report, month-end tarot card, and seasonal themes.
 - Sudoku, find-the-difference, and logic-grid puzzles unlock only as daily XP tier rewards, with reward chest UI, sound/haptic toggles, and difficulty/enjoyment ratings.
 
 ## Data

@@ -198,6 +198,36 @@ a {
   color: var(--muted);
 }
 
+.update-banner {
+  position: sticky;
+  top: 94px;
+  z-index: 9;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent-2) 54%, var(--faint));
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--accent-2) 20%, transparent), rgba(255, 255, 255, 0.08)),
+    color-mix(in oklab, var(--card) 88%, transparent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(24px) saturate(170%);
+}
+
+.update-banner strong,
+.update-banner span {
+  display: block;
+}
+
+.update-banner .btn {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 10px 14px;
+}
+
 .xp-track,
 .mini-track {
   width: 100%;
@@ -445,6 +475,35 @@ h3 {
   cursor: pointer;
 }
 
+.timer-note,
+.work-goal-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 12px;
+  border: 1px solid var(--faint);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.timer-note {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.work-goal-card {
+  margin-top: 12px;
+}
+
+.timer-note strong,
+.timer-note span,
+.work-goal-card strong,
+.work-goal-card span {
+  display: block;
+}
+
 .phase-row.done {
   border-color: color-mix(in oklab, var(--success) 48%, transparent);
   animation: phase-seal 520ms ease both;
@@ -518,7 +577,7 @@ h3 {
 }
 
 .btn:disabled,
-.task-row:disabled {
+.task-row .btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -570,8 +629,36 @@ h3 {
   opacity: 0.62;
 }
 
+.task-row {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.task-row.timer-running {
+  border-color: color-mix(in oklab, var(--accent-2) 62%, var(--faint));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent-2) 20%, transparent);
+}
+
 .task-row.done {
   animation: task-pop 420ms cubic-bezier(0.2, 1.4, 0.3, 1) both;
+}
+
+.task-timer {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.task-actions {
+  display: grid;
+  flex: 1 1 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.task-actions .btn {
+  min-height: 42px;
+  padding-inline: 12px;
 }
 
 .bottom-nav {
@@ -1024,6 +1111,22 @@ select:focus {
     text-align: center;
   }
 
+  .update-banner {
+    top: 124px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .update-banner .btn,
+  .work-goal-card .btn {
+    width: 100%;
+  }
+
+  .work-goal-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .panel {
     padding: 14px;
     border-radius: 26px;
@@ -1106,6 +1209,10 @@ select:focus {
   .phase-row,
   .task-row {
     align-items: flex-start;
+  }
+
+  .task-actions {
+    grid-template-columns: 1fr;
   }
 
   .logic-grid table {
