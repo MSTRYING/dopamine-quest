@@ -102,6 +102,13 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  ]);
+}
+
 async function getFreePort() {
   const server = createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -637,7 +644,7 @@ async function assertOfflineReload(cdp) {
     connectionType: "none"
   });
   try {
-    await cdp.send("Page.navigate", { url: await evaluate(cdp, "location.href") });
+    await withTimeout(cdp.send("Page.navigate", { url: await evaluate(cdp, "location.href") }), 10000, "Offline reload navigation timed out.");
     await waitFor(cdp, "document.querySelector('.bottom-nav') && document.readyState === 'complete'", 10000);
     const loaded = await evaluate(cdp, `document.body.innerText.includes('Dopamine Quest')`);
     assert(loaded, "Offline reload did not render the app shell.");
