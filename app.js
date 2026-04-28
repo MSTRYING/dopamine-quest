@@ -88,7 +88,7 @@ document.addEventListener("click", handleClick);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("input", handleInput);
 setInterval(() => {
-  if (route === "phase" && hasRunningTaskTimer()) render();
+  updateRunningTaskTimers();
 }, 1000);
 
 function getRoute() {
@@ -235,11 +235,6 @@ function applyUpdateAction() {
   window.location.reload();
 }
 
-function hasRunningTaskTimer() {
-  const log = getTodayLog(state);
-  return Object.values(log.taskTimers || {}).some((timer) => timer?.startedAt);
-}
-
 function formatDuration(ms) {
   const totalSeconds = Math.max(0, Math.floor(Number(ms || 0) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -250,6 +245,32 @@ function formatDuration(ms) {
     return `${hours}h ${String(mins).padStart(2, "0")}m`;
   }
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updateRunningTaskTimers() {
+  if (route !== "phase") return;
+  const log = getTodayLog(state);
+  document.querySelectorAll("[data-timer-key]").forEach((row) => {
+    const key = row.dataset.timerKey;
+    if (!log.taskTimers?.[key]?.startedAt) return;
+    updateTaskTimerDom(row, taskTimerElapsedMs(log, key), true);
+  });
+}
+
+function updateTaskTimerDom(row, elapsedMs, running) {
+  if (!row) return;
+  const targetMs = Math.max(0, Number(row.dataset.timerTargetMs || 0));
+  const duration = Math.max(0, Number(row.dataset.timerDurationMin || 0));
+  const pct = targetMs ? Math.min(100, Math.round((elapsedMs / targetMs) * 100)) : 0;
+  row.classList.toggle("timer-running", running);
+  const label = row.querySelector("[data-timer-elapsed]");
+  if (label) {
+    label.textContent = `${running ? "Timer running" : elapsedMs ? "Tracked time" : "Timer ready"} · ${formatDuration(elapsedMs)}${targetMs ? ` / ${duration}m` : ""}`;
+  }
+  const fill = row.querySelector("[data-timer-fill]");
+  if (fill) fill.style.width = `${pct}%`;
+  const button = row.querySelector("[data-timer-button]");
+  if (button && !button.disabled) button.textContent = running ? "Stop timer" : elapsedMs ? "Resume timer" : "Start timer";
 }
 
 function renderToday() {
@@ -413,18 +434,18 @@ function renderTaskRow(phase, task, log) {
   const targetMs = Math.max(0, Number(task.duration || 0) * 60000);
   const timerPct = targetMs ? Math.min(100, Math.round((elapsedMs / targetMs) * 100)) : 0;
   return `
-    <article class="task-row ${done ? "done" : ""} ${running ? "timer-running" : ""}" style="--phase-color:${escapeHtml(phase.color)}">
+    <article class="task-row ${done ? "done" : ""} ${running ? "timer-running" : ""}" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" data-timer-key="${escapeHtml(key)}" data-timer-target-ms="${targetMs}" data-timer-duration-min="${Number(task.duration || 0)}" style="--phase-color:${escapeHtml(phase.color)}">
       <span class="check ${done ? "done" : ""}">✓</span>
       <span class="task-body">
         <strong>${escapeHtml(task.name)}</strong>
         <span class="muted small">${escapeHtml(task.type)} · ${task.duration || 0} min target · ${task.xp || 0} XP · XP ID ${escapeHtml(key)} ${task.bonusCondition ? `· ${escapeHtml(task.bonusCondition)}` : ""}</span>
         <span class="task-timer">
-          <span class="muted small">${running ? "Timer running" : elapsedMs ? "Tracked time" : "Timer ready"} · ${formatDuration(elapsedMs)}${targetMs ? ` / ${task.duration}m` : ""}</span>
-          <span class="mini-track"><span class="mini-fill" style="width:${timerPct}%"></span></span>
+          <span class="muted small" data-timer-elapsed>${running ? "Timer running" : elapsedMs ? "Tracked time" : "Timer ready"} · ${formatDuration(elapsedMs)}${targetMs ? ` / ${task.duration}m` : ""}</span>
+          <span class="mini-track"><span class="mini-fill" data-timer-fill style="width:${timerPct}%"></span></span>
         </span>
       </span>
       <span class="task-actions">
-        <button class="btn secondary" type="button" data-action="toggle-task-timer" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" ${done ? "disabled" : ""}>${running ? "Stop" : elapsedMs ? "Resume" : "Start"} timer</button>
+        <button class="btn secondary" type="button" data-action="toggle-task-timer" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" data-timer-button ${done ? "disabled" : ""}>${running ? "Stop" : elapsedMs ? "Resume" : "Start"} timer</button>
         <button class="btn" type="button" data-action="complete-task" data-phase="${escapeHtml(phase.id)}" data-task="${escapeHtml(task.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Complete"}</button>
       </span>
     </article>
@@ -590,7 +611,14 @@ function toggleTaskTimerAction(phaseId, taskId) {
   const key = taskKey(phaseId, taskId);
   const running = Boolean(log.taskTimers?.[key]?.startedAt);
   const result = running ? stopTaskTimer(state, phaseId, taskId) : startTaskTimer(state, phaseId, taskId);
-  commit(result.ok ? (running ? "Task timer paused and saved." : "Task timer started.") : result.message);
+  if (!result.ok) {
+    toast(result.message);
+    return;
+  }
+  saveState(state);
+  const row = [...document.querySelectorAll("[data-timer-key]")].find((item) => item.dataset.timerKey === key);
+  updateTaskTimerDom(row, taskTimerElapsedMs(getTodayLog(state), key), !running);
+  toast(running ? "Task timer paused and saved." : "Task timer started.");
 }
 
 function getWorkGoalText() {
